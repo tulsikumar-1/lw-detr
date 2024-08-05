@@ -27,7 +27,7 @@ from torch import nn
 
 from misc import NestedTensor
 
-import ViT
+from ViT import ViT
 
 from projector import MultiScaleProjector
 
