@@ -37,8 +37,8 @@ from projector import MultiScaleProjector
 class Backbone(nn.Module):
    
     def __init__(self,
-                 name: str,
-                 vit_encoder_num_layers: 12,
+                 
+                 vit_encoder_num_layers: int = 12,
                  pretrained_encoder: str=False,
                  window_block_indexes: list=[3,6],
                  drop_path=0.0,
