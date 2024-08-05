@@ -135,7 +135,7 @@ class PositionEmbeddingLearned(nn.Module):
         return pos
 
 
-def build_position_encoding(int hidden_dim=256, str encoding_type='sine'):
+def build_position_encoding( hidden_dim:int =256, encoding_type:str='sine'):
     N_steps = hidden_dim // 2
     if 'sine' in encoding_type:
         # TODO find a better way of exposing other arguments
