@@ -154,3 +154,4 @@ def get_vit_weight_decay_rate(name, weight_decay_rate=1.0):
         weight_decay_rate = 0.
     print("name: {}, weight_decay rate: {}".format(name, weight_decay_rate))
     return weight_decay_rate
+
