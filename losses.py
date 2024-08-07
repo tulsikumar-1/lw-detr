@@ -24,7 +24,7 @@ import torch.nn.functional as F
 from torch import nn
 
 import box_ops
-from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
+from misc import (NestedTensor, nested_tensor_from_tensor_list,
                        accuracy, get_world_size,
                        is_dist_avail_and_initialized)
 
