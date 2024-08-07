@@ -490,3 +490,11 @@ def inverse_sigmoid(x, eps=1e-5):
     x1 = x.clamp(min=eps)
     x2 = (1 - x).clamp(min=eps)
     return torch.log(x1/x2)
+
+def count_parameters(model):
+  def count_parameters(model):
+      return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+  # Print the total number of parameters
+  total_params = count_parameters(model)/1000000
+  print(f'Total number of trainable parameters: {total_params} M')
