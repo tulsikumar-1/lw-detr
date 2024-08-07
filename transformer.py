@@ -181,7 +181,7 @@ class Transformer(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
         for m in self.modules():
-            if isinstance(m, MSDeformAttn):
+            if isinstance(m,MultiheadAttention):
                 m._reset_parameters()
     
     def get_valid_ratio(self, mask):
