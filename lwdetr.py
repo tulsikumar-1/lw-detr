@@ -24,6 +24,11 @@ import torch.nn.functional as F
 from torch import nn
 
 
+from misc import (NestedTensor, nested_tensor_from_tensor_list,
+                       accuracy, get_world_size,
+                       is_dist_avail_and_initialized)
+
+
 
 class LWDETR(nn.Module):
     """ This is the Group DETR v3 module that performs object detection """
