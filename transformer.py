@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Aug  5 17:34:01 2024
-
-@author: Administrator
-"""
-
 # ------------------------------------------------------------------------
 # LW-DETR
 # Copyright (c) 2024 Baidu. All Rights Reserved.
@@ -27,7 +20,6 @@ import torch
 import torch.nn.functional as F
 from torch import nn, Tensor
 
-from attention import MultiheadAttention
 
 
 class MLP(nn.Module):
@@ -189,7 +181,7 @@ class Transformer(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
         for m in self.modules():
-            if isinstance(m, MultiheadAttention):
+            if isinstance(m, MSDeformAttn):
                 m._reset_parameters()
     
     def get_valid_ratio(self, mask):
@@ -434,48 +426,44 @@ class TransformerDecoder(nn.Module):
 
 
 class TransformerDecoderLayer(nn.Module):
-
     def __init__(self, d_model, sa_nhead, ca_nhead, dim_feedforward=2048, dropout=0.1,
                  activation="relu", normalize_before=False, group_detr=1, 
                  num_feature_levels=4, dec_n_points=4, 
                  skip_self_attn=False):
         super().__init__()
+        
         # Decoder Self-Attention
         self.self_attn = MultiheadAttention(embed_dim=d_model, num_heads=sa_nhead, dropout=dropout, batch_first=True)
         self.dropout1 = nn.Dropout(dropout)
         self.norm1 = nn.LayerNorm(d_model)
 
         # Decoder Cross-Attention
-        self.cross_attn = MultiheadAttention(
-            d_model, num_heads=ca_nhead )
+        self.cross_attn = MultiheadAttention(embed_dim=d_model, num_heads=ca_nhead, dropout=dropout, batch_first=True)
+        self.dropout2 = nn.Dropout(dropout)
+        self.norm2 = nn.LayerNorm(d_model)
 
-        self.nhead = ca_nhead
-
-        # Implementation of Feedforward model
+        # Feedforward network
         self.linear1 = nn.Linear(d_model, dim_feedforward)
         self.dropout = nn.Dropout(dropout)
         self.linear2 = nn.Linear(dim_feedforward, d_model)
 
-        self.norm2 = nn.LayerNorm(d_model)
         self.norm3 = nn.LayerNorm(d_model)
-        
-        self.dropout2 = nn.Dropout(dropout)
         self.dropout3 = nn.Dropout(dropout)
 
         self.activation = _get_activation_fn(activation)
         self.normalize_before = normalize_before
         self.group_detr = group_detr
 
-    def with_pos_embed(self, tensor, pos: Optional[Tensor]):
+    def with_pos_embed(self, tensor, pos: Optional[torch.Tensor]):
         return tensor if pos is None else tensor + pos
 
     def forward_post(self, tgt, memory,
-                     tgt_mask: Optional[Tensor] = None,
-                     memory_mask: Optional[Tensor] = None,
-                     tgt_key_padding_mask: Optional[Tensor] = None,
-                     memory_key_padding_mask: Optional[Tensor] = None,
-                     pos: Optional[Tensor] = None,
-                     query_pos: Optional[Tensor] = None,
+                     tgt_mask: Optional[torch.Tensor] = None,
+                     memory_mask: Optional[torch.Tensor] = None,
+                     tgt_key_padding_mask: Optional[torch.Tensor] = None,
+                     memory_key_padding_mask: Optional[torch.Tensor] = None,
+                     pos: Optional[torch.Tensor] = None,
+                     query_pos: Optional[torch.Tensor] = None,
                      query_sine_embed = None,
                      is_first = False,
                      reference_points = None,
@@ -484,51 +472,42 @@ class TransformerDecoderLayer(nn.Module):
                      ):
         bs, num_queries, _ = tgt.shape
         
-        # ========== Begin of Self-Attention =============
-        # Apply projections here
-        # shape: batch_size x num_queries x 256
-        q = k = tgt + query_pos
+        # Self-Attention
+        q = k = self.with_pos_embed(tgt, query_pos)
         v = tgt
         if self.training:
             q = torch.cat(q.split(num_queries // self.group_detr, dim=1), dim=0)
             k = torch.cat(k.split(num_queries // self.group_detr, dim=1), dim=0)
             v = torch.cat(v.split(num_queries // self.group_detr, dim=1), dim=0)
 
-        tgt2 = self.self_attn(q, k, v, attn_mask=tgt_mask,
-                            key_padding_mask=tgt_key_padding_mask)[0]
+        tgt2, _ = self.self_attn(q, k, v, attn_mask=tgt_mask, key_padding_mask=tgt_key_padding_mask)
         
         if self.training:
             tgt2 = torch.cat(tgt2.split(bs, dim=0), dim=1)
-        # ========== End of Self-Attention =============
 
         tgt = tgt + self.dropout1(tgt2)
         tgt = self.norm1(tgt)
 
-        # ========== Begin of Cross-Attention =============
-        tgt2 = self.cross_attn(
-            self.with_pos_embed(tgt, query_pos),
-            reference_points,
-            memory,
-            spatial_shapes,
-            level_start_index,
-            memory_key_padding_mask
-        )
-        # ========== End of Cross-Attention =============
+        # Cross-Attention
+        tgt2, _ = self.cross_attn(self.with_pos_embed(tgt, query_pos), memory, memory, 
+                                  attn_mask=memory_mask, key_padding_mask=memory_key_padding_mask)
 
         tgt = tgt + self.dropout2(tgt2)
         tgt = self.norm2(tgt)
+
+        # Feedforward Network
         tgt2 = self.linear2(self.dropout(self.activation(self.linear1(tgt))))
         tgt = tgt + self.dropout3(tgt2)
         tgt = self.norm3(tgt)
         return tgt
 
     def forward(self, tgt, memory,
-                tgt_mask: Optional[Tensor] = None,
-                memory_mask: Optional[Tensor] = None,
-                tgt_key_padding_mask: Optional[Tensor] = None,
-                memory_key_padding_mask: Optional[Tensor] = None,
-                pos: Optional[Tensor] = None,
-                query_pos: Optional[Tensor] = None,
+                tgt_mask: Optional[torch.Tensor] = None,
+                memory_mask: Optional[torch.Tensor] = None,
+                tgt_key_padding_mask: Optional[torch.Tensor] = None,
+                memory_key_padding_mask: Optional[torch.Tensor] = None,
+                pos: Optional[torch.Tensor] = None,
+                query_pos: Optional[torch.Tensor] = None,
                 query_sine_embed = None,
                 is_first = False,
                 reference_points = None,
@@ -538,7 +517,6 @@ class TransformerDecoderLayer(nn.Module):
                                  tgt_key_padding_mask, memory_key_padding_mask, pos, query_pos, 
                                  query_sine_embed, is_first,
                                  reference_points, spatial_shapes, level_start_index)
-
 
 def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])

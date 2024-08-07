@@ -16,6 +16,7 @@ Created on Mon Aug  5 13:23:21 2024
 """
 ViT encoder
 """
+from functools import partial
 import math
 import torch
 import torch.nn as nn
@@ -248,7 +249,7 @@ class ViT(nn.Module):
         mlp_ratio=4.0,
         qkv_bias=True,
         drop_path_rate=0.0,
-        norm_layer=nn.LayerNorm,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6),
         act_layer=nn.GELU,
         use_abs_pos=True,
         window_block_indexes=[],
@@ -256,7 +257,7 @@ class ViT(nn.Module):
         pretrain_img_size=224,
         pretrain_use_cls_token=True,
         out_feature_indexes:list=[-1],
-        use_cae=False,
+        use_cae=True,
     ):
         """
         Args:
