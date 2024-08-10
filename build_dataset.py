@@ -187,7 +187,7 @@ def build_dataset(image_folder, ann_file, image_set,batch_size,num_workers,squar
   else:
       drop_last=False
       sampler = DistributedSampler(dataset, shuffle=False)
-      data_loader = DataLoader(dataset, batch_size,batch_sampler=sampler,drop_last=False,
+      data_loader = DataLoader(dataset, batch_size,drop_last=False,
                                       collate_fn=misc.collate_fn, num_workers=num_workers) 
 
 
