@@ -155,12 +155,12 @@ def make_coco_transforms_square_div_64(image_set):
             normalize,
         ])
 
-    if image_set == 'val':
+    elif image_set == 'val':
         return T.Compose([
             T.SquareResize([640]),
             normalize,
         ])
-    if image_set == 'val_speed':
+    elif image_set == 'val_speed':
         return T.Compose([
             T.SquareResize([640]),
             normalize,
@@ -186,8 +186,8 @@ def build_dataset(image_folder, ann_file, image_set,batch_size,num_workers,squar
       
   else:
       drop_last=False
-     #sampler_val = torch.utils.data.SequentialSampler(dataset)
-      data_loader = DataLoader(dataset, batch_size,drop_last=False,
+      sampler_val = torch.utils.data.SequentialSampler(dataset)
+      data_loader = DataLoader(dataset, batch_size,sampler=sampler_val,drop_last=False,
                                       collate_fn=misc.collate_fn, num_workers=num_workers) 
 
 
