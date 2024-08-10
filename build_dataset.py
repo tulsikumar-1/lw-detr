@@ -169,13 +169,19 @@ def make_coco_transforms_square_div_64(image_set):
     raise ValueError(f'unknown {image_set}')
 
 def build_dataset(image_folder, ann_file, image_set,batch_size,num_workers,square_div_64=False):
+    
+  if image_set=='train':
+      drop_last=True
+  else:
+      drop_last=False
+
   if make_coco_transforms_square_div_64:
     dataset = CocoDetection(image_folder, ann_file, transforms=make_coco_transforms_square_div_64(image_set))
   else:
     dataset=CocoDetection(image_folder, ann_file, transforms=make_coco_transforms(image_set))
   sampler = torch.utils.data.RandomSampler(dataset)
   batch_sampler = torch.utils.data.BatchSampler(
-        sampler,batch_size , drop_last=True)
+        sampler,batch_size , drop_last=drop_last)
   data_loader = DataLoader(dataset, batch_sampler=batch_sampler,
                                    collate_fn=misc.collate_fn, num_workers=num_workers)
   return data_loader
