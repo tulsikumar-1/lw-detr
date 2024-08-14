@@ -492,9 +492,37 @@ def inverse_sigmoid(x, eps=1e-5):
     return torch.log(x1/x2)
 
 def count_parameters(model):
-  def count_parameters(model):
+  def count(model):
       return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
   # Print the total number of parameters
-  total_params = count_parameters(model)/1000000
+  total_params = count(model)/1000000
   print(f'Total number of trainable parameters: {total_params} M')
+
+
+
+def convert_predictions_to_coco_format(predictions, image_id):
+    coco_results = []
+
+    for idx in range(len(predictions['scores'])):
+        score = predictions['scores'][idx].item()
+        label = predictions['labels'][idx].item()
+        bbox = predictions['boxes'][idx].tolist()
+
+
+        # Convert bbox from [x1, y1, x2, y2] to [x_min, y_min, width, height]
+
+       # bbox=[x /640 for x in bbox]
+        x_min, y_min, x_max, y_max = bbox
+        width = x_max - x_min
+        height = y_max - y_min
+
+        coco_results.append({
+            'image_id': image_id,
+            'category_id': label+1,
+            'bbox': [x_min, y_min, width, height],
+            'score': -score
+
+        })
+
+    return coco_results
