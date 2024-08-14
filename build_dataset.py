@@ -170,7 +170,7 @@ def make_coco_transforms_square_div_64(image_set):
 
 def build_dataset(image_folder, ann_file, image_set,batch_size,num_workers,square_div_64=False):
     
-  if make_coco_transforms_square_div_64:
+  if square_div_64:
     dataset = CocoDetection(image_folder, ann_file, transforms=make_coco_transforms_square_div_64(image_set))
   else:
     dataset=CocoDetection(image_folder, ann_file, transforms=make_coco_transforms(image_set))

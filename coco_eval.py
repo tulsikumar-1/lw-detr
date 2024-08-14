@@ -27,7 +27,7 @@ from pycocotools.cocoeval import COCOeval
 from pycocotools.coco import COCO
 import pycocotools.mask as mask_util
 
-from misc import all_gather
+from util.misc import all_gather
 
 
 class CocoEvaluator(object):
@@ -104,7 +104,7 @@ class CocoEvaluator(object):
                         "image_id": original_id,
                         "category_id": labels[k],
                         "bbox": box,
-                        "score": scores[k],
+                        "score": -scores[k],
                     }
                     for k, box in enumerate(boxes)
                 ]
@@ -232,7 +232,7 @@ def evaluate(self):
     p.imgIds = list(np.unique(p.imgIds))
     if p.useCats:
         p.catIds = list(np.unique(p.catIds))
-    p.maxDets = sorted(p.maxDets)
+    p.maxDets = [1,15,30]
     self.params = p
 
     self._prepare()
