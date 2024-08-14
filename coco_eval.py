@@ -139,7 +139,7 @@ class CocoEvaluator(object):
                         "image_id": original_id,
                         "category_id": labels[k],
                         "segmentation": rle,
-                        "score": scores[k],
+                        "score": -scores[k],
                     }
                     for k, rle in enumerate(rles)
                 ]
