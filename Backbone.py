@@ -38,17 +38,17 @@ class Backbone(nn.Module):
    
     def __init__(self,
                  
-                 vit_encoder_num_layers: int = 12,
+                 vit_encoder_num_layers: int = 6,
                  pretrained_encoder: str=False,
-                 window_block_indexes: list=[3,6],
-                 drop_path=0.0,
+                 window_block_indexes: list=[0,2,4],
+                 drop_path=0.1,
                  out_channels=256,
-                 out_feature_indexes: list=[-1],
+                 out_feature_indexes: list=[1,3,5],
                  projector_scale: list= ['P3'],
                  ):
         super(Backbone,self).__init__()
         
-        img_size, embed_dim, depth, num_heads, dp = 1024, 192, 12, 12, 0.0
+        img_size, embed_dim, depth, num_heads, dp = 640, 192, 12, 12, 0.1
 
         depth = vit_encoder_num_layers
         
@@ -63,10 +63,10 @@ class Backbone(nn.Module):
                 qkv_bias=True,
                 norm_layer=partial(nn.LayerNorm, eps=1e-6),
                 window_block_indexes=window_block_indexes,
-                use_act_checkpoint=False,  # use checkpoint to save memory
+                use_act_checkpoint=True,  # use checkpoint to save memory
                 use_abs_pos=True,
                 out_feature_indexes=out_feature_indexes,
-                use_cae=True)
+                use_cae=False)
  
 
 
@@ -105,18 +105,18 @@ class Backbone(nn.Module):
             out.append(NestedTensor(feat, mask))
         return out
 
-    def get_named_param_lr_pairs(self, args, prefix:str = "backbone.0"):
+    def get_named_param_lr_pairs(self, vit_encoder_num_layers,lr_encoder,lr_vit_layer_decay,weight_decay,lr_component_decay, prefix:str = "backbone.0"):
         try:
-            num_layers = args.vit_encoder_num_layers
+            num_layers = vit_encoder_num_layers
             backbone_key = 'backbone.0.encoder'
             named_param_lr_pairs = {}
             for n, p in self.named_parameters():
                 n = prefix + "." + n
                 if backbone_key in n and p.requires_grad:
-                    lr = args.lr_encoder * get_vit_lr_decay_rate(
-                        n, lr_decay_rate=args.lr_vit_layer_decay, 
-                        num_layers=num_layers) * args.lr_component_decay ** 2
-                    wd = args.weight_decay * get_vit_weight_decay_rate(n)
+                    lr = lr_encoder * get_vit_lr_decay_rate(
+                        n, lr_decay_rate=lr_vit_layer_decay, 
+                        num_layers=num_layers) * lr_component_decay ** 2
+                    wd = weight_decay * get_vit_weight_decay_rate(n)
                     named_param_lr_pairs[n] = {
                         "params": p,
                         "lr": lr,
