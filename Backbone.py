@@ -48,9 +48,10 @@ class Backbone(nn.Module):
                  ):
         super(Backbone,self).__init__()
         
-        img_size, embed_dim, depth, num_heads, dp = 640, 192, 12, 12, 0.1
+        img_size, embed_dim, num_heads = 640, 192, 12
 
         depth = vit_encoder_num_layers
+        
         
         self.encoder = ViT(  # Single-scale ViT encoder
                 img_size=img_size,
@@ -58,7 +59,7 @@ class Backbone(nn.Module):
                 embed_dim=embed_dim,
                 depth=depth,
                 num_heads=num_heads,
-                drop_path_rate=dp,
+                drop_path_rate=drop_path,
                 mlp_ratio=4,
                 qkv_bias=True,
                 norm_layer=partial(nn.LayerNorm, eps=1e-6),

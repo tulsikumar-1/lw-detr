@@ -143,6 +143,6 @@ def build_position_encoding( hidden_dim:int =256, encoding_type:str='sine'):
     elif 'learned' in encoding_type:
         position_embedding = PositionEmbeddingLearned(N_steps)
     else:
-        raise ValueError(f"not supported {encoding_type}")
+        raise ValueError(f"not supported {encoding_type} \n supported types: sine , learned")
 
     return position_embedding

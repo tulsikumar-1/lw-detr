@@ -168,31 +168,42 @@ def make_coco_transforms_square_div_64(image_set):
 
     raise ValueError(f'unknown {image_set}')
 
-def build_dataset(image_folder, ann_file, image_set,batch_size,num_workers,square_div_64=False):
-    
-  if square_div_64:
-    dataset = CocoDetection(image_folder, ann_file, transforms=make_coco_transforms_square_div_64(image_set))
-  else:
-    dataset=CocoDetection(image_folder, ann_file, transforms=make_coco_transforms(image_set))
-    
-    
-  if image_set=='train':
-      drop_last=True
-      sampler = torch.utils.data.RandomSampler(dataset)
-      batch_sampler = torch.utils.data.BatchSampler(
-            sampler,batch_size , drop_last=drop_last)
-      data_loader = DataLoader(dataset, batch_sampler=batch_sampler,
-                                       collate_fn=misc.collate_fn, num_workers=num_workers)
-      
-  else:
-      drop_last=False
-      sampler_val = torch.utils.data.SequentialSampler(dataset)
-      data_loader = DataLoader(dataset, batch_size,sampler=sampler_val,drop_last=False,
-                                      collate_fn=misc.collate_fn, num_workers=num_workers) 
+def build_dataset(image_folder, ann_file, image_set, batch_size, num_workers, square_div_64=False):
+    if square_div_64:
+        dataset = CocoDetection(image_folder, ann_file, transforms=make_coco_transforms_square_div_64(image_set))
+    else:
+        dataset = CocoDetection(image_folder, ann_file, transforms=make_coco_transforms(image_set))
 
+    if image_set == 'train':
+        drop_last = True
+        
+        # Calculate class weights
+        labels = []
+        for _, target in dataset:
+            labels.extend(target['labels'].tolist())
+        
+        class_counts = torch.bincount(torch.tensor(labels))
+        class_weights = 1.0 / class_counts.float()
+        
+        # Create sample weights
+        sample_weights = [class_weights[target['labels']].mean() for _, target in dataset]
+        sample_weights = torch.tensor(sample_weights)
+        
+        # Initialize WeightedRandomSampler
+        sampler = torch.utils.data.WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
+        
+        # Use the sampler in a DataLoader
+        data_loader = DataLoader(dataset, batch_size=batch_size, sampler=sampler,
+                                 collate_fn=misc.collate_fn, num_workers=num_workers, drop_last=drop_last)
+        
+    else:
+        drop_last = False
+        sampler_val = torch.utils.data.SequentialSampler(dataset)
+        data_loader = DataLoader(dataset, batch_size, sampler=sampler_val, drop_last=drop_last,
+                                 collate_fn=misc.collate_fn, num_workers=num_workers)
 
-  
-  return data_loader
+    return data_loader
+
       
 
 """
