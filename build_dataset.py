@@ -180,7 +180,7 @@ def build_dataset(image_folder, ann_file, image_set, batch_size, num_workers, sq
     if square_div_64:
         dataset = CocoDetection(image_folder, ann_file, transforms=make_coco_transforms_square_div_64(image_set))
     else:
-        dataset = CocoDetection(image_folder, ann_file, transforms=make_coco_transforms(image_set))
+        dataset = CocoDetection(image_folder, ann_file, transforms=None)
 
     if image_set == 'train':
         drop_last = True
