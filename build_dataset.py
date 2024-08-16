@@ -161,6 +161,21 @@ def make_coco_transforms_square_div_64(image_set):
 
     raise ValueError(f'unknown {image_set}')
 
+
+def Calculate_class_weights (dataset):
+    labels = []
+    for _, target in dataset:
+        labels.extend(target['labels'].tolist())
+    
+    class_counts = torch.bincount(torch.tensor(labels))
+    class_weights = 1.0 / class_counts.float()
+    
+    # Create sample weights
+    sample_weights = [class_weights[target['labels']].mean() for _, target in dataset]
+    sample_weights = torch.tensor(sample_weights)
+    
+    return sample_weights
+
 def build_dataset(image_folder, ann_file, image_set, batch_size, num_workers, square_div_64=False):
     if square_div_64:
         dataset = CocoDetection(image_folder, ann_file, transforms=make_coco_transforms_square_div_64(image_set))
@@ -170,18 +185,8 @@ def build_dataset(image_folder, ann_file, image_set, batch_size, num_workers, sq
     if image_set == 'train':
         drop_last = True
         
-        # Calculate class weights
-        labels = []
-        for _, target in dataset:
-            labels.extend(target['labels'].tolist())
-        
-        class_counts = torch.bincount(torch.tensor(labels))
-        class_weights = 1.0 / class_counts.float()
-        
-        # Create sample weights
-        sample_weights = [class_weights[target['labels']].mean() for _, target in dataset]
-        sample_weights = torch.tensor(sample_weights)
-        
+
+        sample_weights=Calculate_class_weights (dataset)
         # Initialize WeightedRandomSampler
         sampler = torch.utils.data.WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
         
