@@ -516,12 +516,14 @@ def convert_predictions_to_coco_format(predictions, image_id):
         x_min, y_min, x_max, y_max = bbox
         width = x_max - x_min
         height = y_max - y_min
+        
+        
 
         coco_results.append({
             'image_id': image_id,
             'category_id': label+1,
-            'bbox': [x_min, y_min, width, height],
-            'score': -score
+            'bbox': [round(x_min), round(y_min), round(width), round(height)],
+            'score': round(score,4)
 
         })
 
