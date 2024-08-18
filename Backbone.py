@@ -48,7 +48,7 @@ class Backbone(nn.Module):
                  ):
         super(Backbone,self).__init__()
         
-        img_size, embed_dim, num_heads = 640, 192, 12
+        img_size, embed_dim, num_heads = 640, 384, 12
 
         depth = vit_encoder_num_layers
         
