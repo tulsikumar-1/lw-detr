@@ -521,7 +521,7 @@ def convert_predictions_to_coco_format(predictions, image_id):
 
         coco_results.append({
             'image_id': image_id,
-            'category_id': label+1,
+            'category_id': label,
             'bbox': [round(x_min), round(y_min), round(width), round(height)],
             'score': round(score,4)
 
