@@ -184,23 +184,22 @@ def build_dataset(image_folder, ann_file, image_set, batch_size, num_workers, sq
 
     if image_set == 'train':
         drop_last = True
-        
 
-        sample_weights=Calculate_class_weights (dataset)
-        # Initialize WeightedRandomSampler
-        sampler = torch.utils.data.WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
+        # Initialize RandomSampler
+        sampler = torch.utils.data.RandomSampler(dataset)
         
         # Use the sampler in a DataLoader
         data_loader = DataLoader(dataset, batch_size=batch_size, sampler=sampler,
-                                 collate_fn=misc.collate_fn, num_workers=num_workers, drop_last=drop_last,pin_memory=True)
+                                 collate_fn=misc.collate_fn, num_workers=num_workers, drop_last=drop_last, pin_memory=True)
         
     else:
         drop_last = False
         sampler_val = torch.utils.data.SequentialSampler(dataset)
         data_loader = DataLoader(dataset, batch_size, sampler=sampler_val, drop_last=drop_last,
-                                 collate_fn=misc.collate_fn, num_workers=num_workers,pin_memory=True)
+                                 collate_fn=misc.collate_fn, num_workers=num_workers, pin_memory=True)
 
     return data_loader
+
 
       
 
