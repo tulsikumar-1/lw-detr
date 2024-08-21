@@ -44,11 +44,12 @@ class Backbone(nn.Module):
                  drop_path=0.1,
                  out_channels=256,
                  out_feature_indexes: list=[1,3,5],
-                 projector_scale: list= ['P3'],
+                 projector_scale: list= ['P4'],
+                 embed_dim:int =192
                  ):
         super(Backbone,self).__init__()
         
-        img_size, embed_dim, num_heads = 640, 192, 12
+        img_size, num_heads = 1024, 12
 
         depth = vit_encoder_num_layers
         

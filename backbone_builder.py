@@ -39,6 +39,7 @@ def build_backbone(vit_encoder_num_layers: int=6 ,
                  out_feature_indexes: list=[1 ,3 ,5],
                  projector_scale: list= ['P4','P5'],
                  hidden_dim: int =256,
+                 embed_dim: int =192,
                  encoding_type: str ='sine'):
     """
     Useful args:
@@ -59,6 +60,7 @@ def build_backbone(vit_encoder_num_layers: int=6 ,
                  out_channels=out_channels,
                  out_feature_indexes=[-1],
                  projector_scale=projector_scale,
+                 embed_dim= embed_dim,
         )
 
     model = Joiner(backbone, position_embedding)

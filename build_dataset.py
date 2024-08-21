@@ -145,6 +145,7 @@ def make_coco_transforms_square_div_64(image_set):
 
         return T.Compose([
            T.RandomSelect( T.RandomHorizontalFlip(), T.RandomResize(scales, max_size=1024)),
+                           T.RandomSizeCrop(384, 600),
             normalize,
         ])
 

@@ -161,8 +161,8 @@ class Block(nn.Module):
         drop_path=0.0,
         norm_layer=nn.LayerNorm,
         act_layer=nn.GELU,
-        window=False,
-        use_cae=False,
+        window=True,
+        use_cae=True,
     ):
         """
         Args:
@@ -248,7 +248,7 @@ class ViT(nn.Module):
         num_heads=12,
         mlp_ratio=4.0,
         qkv_bias=True,
-        drop_path_rate=0.0,
+        drop_path_rate=0.1,
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
         act_layer=nn.GELU,
         use_abs_pos=True,
