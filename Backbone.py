@@ -96,8 +96,8 @@ class Backbone(nn.Module):
         """
         """
         # (H, W, B, C)
-        feats = self.encoder(tensor_list.tensors)
-        feats = self.projector(feats)
+        feats_encoder = self.encoder(tensor_list.tensors)
+        feats = self.projector(feats_encoder)
         # x: [(B, C, H, W)]
         out = []
         for feat in feats:
@@ -105,7 +105,7 @@ class Backbone(nn.Module):
             assert m is not None
             mask = F.interpolate(m[None].float(), size=feat.shape[-2:]).to(torch.bool)[0]
             out.append(NestedTensor(feat, mask))
-        return out
+        return out,feats_encoder
 
     def get_named_param_lr_pairs(self, vit_encoder_num_layers,lr_encoder,lr_vit_layer_decay,weight_decay,lr_component_decay, prefix:str = "backbone.0"):
         try:

@@ -24,11 +24,11 @@ class Joiner(nn.Sequential):
     def forward(self, tensor_list: NestedTensor):
         """
         """
-        x = self[0](tensor_list)
+        x,feats = self[0](tensor_list)
         pos = []
         for x_ in x:
             pos.append(self[1](x_, align_dim_orders=False).to(x_.tensors.dtype))
-        return x, pos
+        return x, pos,feats
 
 
 

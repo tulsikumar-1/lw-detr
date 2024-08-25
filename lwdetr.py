@@ -122,7 +122,7 @@ class LWDETR(nn.Module):
         """
         if isinstance(samples, (list, torch.Tensor)):
             samples = nested_tensor_from_tensor_list(samples)
-        features, poss = self.backbone(samples)
+        features, poss,enc_feats = self.backbone(samples)
 
         srcs = []
         masks = []
@@ -168,7 +168,7 @@ class LWDETR(nn.Module):
                 cls_enc.append(cls_enc_gidx)
             cls_enc = torch.cat(cls_enc, dim=1)
             out['enc_outputs'] = {'pred_logits': cls_enc, 'pred_boxes': ref_enc}
-        return out
+        return out,enc_feats
 
     def forward_export(self, tensors):
         srcs, _, poss = self.backbone(tensors)
