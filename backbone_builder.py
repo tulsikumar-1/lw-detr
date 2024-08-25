@@ -19,7 +19,7 @@ class Joiner(nn.Sequential):
     def __init__(self, backbone, position_embedding):
         super().__init__(backbone, position_embedding)
         self._export = False
-        self.encoder = backbone
+
 
     def forward(self, tensor_list: NestedTensor):
         """
