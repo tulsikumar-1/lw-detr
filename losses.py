@@ -140,8 +140,6 @@ class SetCriterion(nn.Module):
 
             pos_ind=[id for id in idx]
             pos_ind.append(target_classes_o)
-            print(f'pos_ious: {pos_ious.shape}')
-            print(f'pos_ind: {pos_ind}')
             cls_iou_targets[pos_ind] = pos_ious
             #print(cls_iou_targets)
             loss_ce = sigmoid_varifocal_loss(src_logits, cls_iou_targets, num_boxes, alpha=self.focal_alpha, gamma=2) * src_logits.shape[1]
