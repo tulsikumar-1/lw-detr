@@ -75,7 +75,11 @@ class HungarianMatcher(nn.Module):
         tgt_ids = torch.cat([v["labels"] for v in targets])
         tgt_bbox = torch.cat([v["boxes"] for v in targets])
 
+        out_bbox = torch.clamp(out_bbox, min=0)
         # Compute the giou cost betwen boxes
+        if (out_bbox < 0).any():
+          raise ValueError("Predicted boxes contain negative values")
+        
         giou = generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), box_cxcywh_to_xyxy(tgt_bbox))
         cost_giou = -giou
 
@@ -83,12 +87,25 @@ class HungarianMatcher(nn.Module):
         alpha = self.focal_alpha
         gamma = 2.0
         
-        neg_cost_class = (1 - alpha) * (out_prob ** gamma) * (-(1 - out_prob + 1e-8).log())
-        pos_cost_class = alpha * ((1 - out_prob) ** gamma) * (-(out_prob + 1e-8).log())
+
+                # Safe computation of focal loss
+        epsilon = 1e-8
+        out_prob = torch.clamp(out_prob, epsilon, 1 - epsilon)  # Avoid log(0)
+        
+        neg_cost_class = (1 - alpha) * (out_prob ** gamma) * (-(1 - out_prob).log())
+        pos_cost_class = alpha * ((1 - out_prob) ** gamma) * (-out_prob.log())
         cost_class = pos_cost_class[:, tgt_ids] - neg_cost_class[:, tgt_ids]
+
 
         # Compute the L1 cost between boxes
         cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1)
+
+        if not torch.isfinite(cost_bbox).all():
+            raise ValueError("cost_bbox contains non-finite values (NaN or Inf)")
+        if not torch.isfinite(cost_class).all():
+            raise ValueError("cost_class contains non-finite values (NaN or Inf)")
+        if not torch.isfinite(cost_giou).all():
+            raise ValueError("cost_giou contains non-finite values (NaN or Inf)")
 
         # Final cost matrix
         C = self.cost_bbox * cost_bbox + self.cost_class * cost_class + self.cost_giou * cost_giou
