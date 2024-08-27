@@ -8,41 +8,42 @@ import numpy as np
 import json
 
 def compute_metrices(pred_file,val_ann_file,iou_range:int=(0.5, 0.5), step:float =0.05, confidence_threshold:float=0.0):
-  
+
   with open(pred_file, 'r') as file:
     predictions = json.load(file)
 
   with open(val_ann_file, 'r') as file:
     ground_truths = json.load(file)
     annotations=ground_truths['annotations']
-            
+
   image_id=0
   preds=[gt for gt in predictions if gt['image_id'] == image_id]
-  #preds_thre=apply_confidence_threshold(preds,0.4)
-  g_truths=[gt for gt in annotations if gt['image_id'] == image_id]
+
   aps=[]
   precision_scores=[]
   recall_scores=[]
   while preds!=[]:
+    preds=[gt for gt in predictions if gt['image_id'] == image_id]
+    preds=[pred for pred in preds if pred['category_id']!=0]
+    g_truths=[gt for gt in annotations if gt['image_id'] == image_id]
     # Extract ground truth boxes and labels
     gt_boxes, _, gt_labels = extract_coco_data(g_truths)
     preds_nms = apply_nms(preds,confidence_threshold)
+
     precision,recall,map_score = compute_map_over_iou_range(preds_nms, gt_boxes, gt_labels, iou_range=(0.5, 0.5), step=0.05, confidence_threshold=0.0)
     precision_scores.append(precision)
     recall_scores.append(recall)
     aps.append(map_score)
-    
-    
+
+
     image_id+=1
-    preds=[gt for gt in predictions if gt['image_id'] == image_id]
-    #preds_thre=apply_confidence_threshold(preds,0.4)
-    g_truths=[gt for gt in annotations if gt['image_id'] == image_id]
+
 
   #print(f"Mean Average Precision (mAP) with Confidence Threshold: {np.mean(aps):.4f}")
   #print(f"Precision: {np.mean(precision_scores):.4f}")
   #print(f"Recall: {np.mean(recall_scores):.4f}")
   return np.mean(precision_scores),np.mean(recall_scores),np.mean(aps)
-  
+
 
 
 def calculate_iou(box1, box2):
@@ -226,3 +227,4 @@ def apply_nms(predictions, iou_threshold=0.5):
         filtered_predictions = [pred for pred in filtered_predictions if calculate_iou(best_pred['bbox'], pred['bbox']) < iou_threshold]
 
     return nms_predictions
+
