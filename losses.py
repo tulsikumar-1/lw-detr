@@ -144,8 +144,9 @@ class SetCriterion(nn.Module):
             #print(cls_iou_targets)
             loss_ce = sigmoid_varifocal_loss(src_logits, cls_iou_targets, num_boxes, alpha=self.focal_alpha, gamma=2) * src_logits.shape[1]
         else:
-            target_classes = torch.full(src_logits.shape[:2], self.num_classes,
-                                        dtype=torch.int64, device=src_logits.device)
+            target_classes  = torch.zeros(src_logits.shape[:2], dtype=torch.int64, device=src_logits.device)
+
+
             target_classes[idx] = target_classes_o
 
             target_classes_onehot = torch.zeros([src_logits.shape[0], src_logits.shape[1], src_logits.shape[2]+1],
