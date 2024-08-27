@@ -1,48 +1,53 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Aug 26 23:02:01 2024
+Created on Mon Aug 15 23:02:01 2024
 
 @author: Administrator
 """
 import numpy as np
 import json
 
-def compute_metrices(pred_file,val_ann_file,iou_range:int=(0.5, 0.5), step:float =0.05, confidence_threshold:float=0.0):
+import numpy as np
+import json
 
-  with open(pred_file, 'r') as file:
-    predictions = json.load(file)
+def compute_metrices(pred_file, val_ann_file, iou_range=(0.5, 0.5), step=0.05, confidence_threshold=0.0):
+    with open(pred_file, 'r') as file:
+        predictions = json.load(file)
 
-  with open(val_ann_file, 'r') as file:
-    ground_truths = json.load(file)
-    annotations=ground_truths['annotations']
+    with open(val_ann_file, 'r') as file:
+        ground_truths = json.load(file)
+        annotations = ground_truths['annotations']
 
-  image_id=0
-  preds=[gt for gt in predictions if gt['image_id'] == image_id]
+    image_id = 0
+    aps = []
+    precision_scores = []
+    recall_scores = []
 
-  aps=[]
-  precision_scores=[]
-  recall_scores=[]
-  while preds!=[]:
-    preds=[gt for gt in predictions if gt['image_id'] == image_id]
-    preds=[pred for pred in preds if pred['category_id']!=0]
-    g_truths=[gt for gt in annotations if gt['image_id'] == image_id]
-    # Extract ground truth boxes and labels
-    gt_boxes, _, gt_labels = extract_coco_data(g_truths)
-    preds_nms = apply_nms(preds,confidence_threshold)
+    while True:
+        preds = [gt for gt in predictions if gt['image_id'] == image_id]
+        preds = [gt for gt in preds if gt['category_id'] != 0]
+        if not preds:  # Break the loop if no more predictions for next image_id
+            break
 
-    precision,recall,map_score = compute_map_over_iou_range(preds_nms, gt_boxes, gt_labels, iou_range=(0.5, 0.5), step=0.05, confidence_threshold=0.0)
-    precision_scores.append(precision)
-    recall_scores.append(recall)
-    aps.append(map_score)
+        g_truths = [gt for gt in annotations if gt['image_id'] == image_id]
+        gt_boxes, _, gt_labels = extract_coco_data(g_truths)
+        preds_nms = apply_nms(preds, confidence_threshold)
 
+        precision, recall, map_score = compute_map_over_iou_range(preds_nms, gt_boxes, gt_labels, iou_range=iou_range, step=step, confidence_threshold=confidence_threshold)
 
-    image_id+=1
+        # Avoid NaN by checking if lists are non-empty
+        if precision and recall:
+            precision_scores.append(np.mean(precision))
+            recall_scores.append(np.mean(recall))
+            aps.append(map_score)
 
+        image_id += 1
 
-  #print(f"Mean Average Precision (mAP) with Confidence Threshold: {np.mean(aps):.4f}")
-  #print(f"Precision: {np.mean(precision_scores):.4f}")
-  #print(f"Recall: {np.mean(recall_scores):.4f}")
-  return np.mean(precision_scores),np.mean(recall_scores),np.mean(aps)
+    if not precision_scores or not recall_scores:
+        return 0.0, 0.0, np.mean(aps) if aps else 0.0
+
+    return np.mean(precision_scores), np.mean(recall_scores), np.mean(aps)
+
 
 
 
@@ -83,7 +88,8 @@ def calculate_precision_recall_ap(pred_boxes, pred_scores, pred_labels, gt_boxes
     all_scores = []
 
     matched_gt = set()  # To keep track of which ground truth boxes have been matched
-
+  #  if len(pred_boxes)==0:
+  #    return [0],[0],0
     for pred_box, score, pred_label in zip(pred_boxes, pred_scores, pred_labels):
         best_iou = 0
         best_gt_index = -1
@@ -93,7 +99,7 @@ def calculate_precision_recall_ap(pred_boxes, pred_scores, pred_labels, gt_boxes
                 continue
 
             iou = calculate_iou(pred_box, gt_box)
-            if iou > best_iou :#and pred_label == gt_label:  # Ensure class IDs match
+            if iou > best_iou and pred_label == gt_label:  # Ensure class IDs match
                 best_iou = iou
                 best_gt_index = i
 
@@ -106,6 +112,7 @@ def calculate_precision_recall_ap(pred_boxes, pred_scores, pred_labels, gt_boxes
             fp.append(1)  # False Positive
 
         all_scores.append(score)
+
 
     # Convert to numpy arrays
     tp = np.array(tp)
@@ -128,12 +135,12 @@ def calculate_precision_recall_ap(pred_boxes, pred_scores, pred_labels, gt_boxes
     # Calculate recall and precision
     recalls = tp_cumsum / len(gt_boxes)
     precisions = tp_cumsum / (tp_cumsum + fp_cumsum)
-    precisions = np.insert(precisions, 0, 1)
-    recalls = np.insert(recalls, 0, 0)
+    precisions1 = np.insert(precisions, 0, 1)
+    recalls1 = np.insert(recalls, 0, 0)
    # print(f'precision:  {precisions}')
    # print(f'recalls:  {recalls}')
     # Compute Average Precision (AP)
-    ap = np.trapz(precisions, recalls)  # Area under the precision-recall curve
+    ap = np.trapz(precisions1, recalls1)  # Area under the precision-recall curve
 
     return precisions, recalls, ap
 
@@ -227,4 +234,3 @@ def apply_nms(predictions, iou_threshold=0.5):
         filtered_predictions = [pred for pred in filtered_predictions if calculate_iou(best_pred['bbox'], pred['bbox']) < iou_threshold]
 
     return nms_predictions
-
