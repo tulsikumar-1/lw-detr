@@ -7,8 +7,7 @@ Created on Mon Aug 15 23:02:01 2024
 import numpy as np
 import json
 
-import numpy as np
-import json
+
 
 def compute_metrices(pred_file, val_ann_file, iou_range=(0.5, 0.5), step=0.05, confidence_threshold=0.0):
     with open(pred_file, 'r') as file:
