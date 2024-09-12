@@ -25,10 +25,10 @@ import torch
 from torchvision.ops.boxes import box_area
 
 
-def box_cxcywh_to_xyxy(x):
+def box_cxcywh_to_xyxy(x,eps=1e-6):
     x_c, y_c, w, h = x.unbind(-1)
-    b = [(x_c - 0.5 * w.clamp(min=0.0)), (y_c - 0.5 * h.clamp(min=0.0)),
-         (x_c + 0.5 * w.clamp(min=0.0)), (y_c + 0.5 * h.clamp(min=0.0))]
+    b = [(x_c - 0.5 * w.clamp(min=eps)), (y_c - 0.5 * h.clamp(min=eps)),
+         (x_c + 0.5 * w.clamp(min=eps)), (y_c + 0.5 * h.clamp(min=eps))]
     return torch.stack(b, dim=-1)
 
 
