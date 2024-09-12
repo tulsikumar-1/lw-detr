@@ -149,11 +149,11 @@ class SetCriterion(nn.Module):
 
             target_classes[idx] = target_classes_o
 
-            target_classes_onehot = torch.zeros([src_logits.shape[0], src_logits.shape[1], src_logits.shape[2]+1],
+            target_classes_onehot = torch.zeros([src_logits.shape[0], src_logits.shape[1], src_logits.shape[2]],
                                                 dtype=src_logits.dtype, layout=src_logits.layout, device=src_logits.device)
             target_classes_onehot.scatter_(2, target_classes.unsqueeze(-1), 1)
 
-            target_classes_onehot = target_classes_onehot[:,:,:-1]
+            #target_classes_onehot = target_classes_onehot[:,:,:-1]
 
             src_boxes = outputs['pred_boxes'][idx]
             target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0)
@@ -171,7 +171,7 @@ class SetCriterion(nn.Module):
             cls_iou_targets[pos_ind] = pos_ious
 
            # print(f'cls_iou_targets:{cls_iou_targets.shape}')
-            loss_ce = sigmoid_focal_loss(src_logits, target_classes_onehot,cls_iou_targets, num_boxes, alpha=self.focal_alpha, gamma=2) * src_logits.shape[1]
+            loss_ce = sigmoid_focal_loss(src_logits, target_classes_onehot,cls_iou_targets, num_boxes, alpha=self.focal_alpha, gamma=5) * src_logits.shape[1]
         losses = {'loss_ce': loss_ce}
 
         if log:
@@ -290,7 +290,7 @@ class SetCriterion(nn.Module):
         return losses
 
 
-def sigmoid_focal_loss(inputs, targets,iou_scores_cls, num_boxes, alpha: float = 0.25, gamma: float = 2):
+def sigmoid_focal_loss(inputs, targets,iou_scores_cls, num_boxes, alpha: float = 0.25, gamma: float = 5):
     """
     Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
     Args:
