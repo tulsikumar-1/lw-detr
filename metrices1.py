@@ -18,7 +18,7 @@ def compute_metrices(pred_file, val_ann_file, iou_range=(0.5, 0.5), confidence_t
     precisions, recalls, ap,_,_,_=calculate_precision_recall_ap(predictions, annotations, iou_range[0],confidence_threshold)
     
     
-    return precisions, recalls, ap
+    return np.mean(precisions),np.mean(recalls), ap
         
 
 
