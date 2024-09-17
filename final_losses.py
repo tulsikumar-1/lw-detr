@@ -205,8 +205,8 @@ class SetCriterion(nn.Module):
         # Apply size-based weights to the bounding box loss
         weighted_loss_bbox = (loss_bbox * weights[:, None]).sum() / num_boxes
         losses = {}
-        losses['loss_bbox'] = weighted_loss_bbox
-        #losses['loss_bbox'] = loss_bbox.sum() / num_boxes
+        #losses['loss_bbox'] = weighted_loss_bbox
+        losses['loss_bbox'] = loss_bbox.sum() / num_boxes
 
 
         loss_giou = 1 - torch.diag(box_ops.generalized_box_iou(
