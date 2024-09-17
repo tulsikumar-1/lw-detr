@@ -190,19 +190,18 @@ class SetCriterion(nn.Module):
         src_boxes = outputs['pred_boxes'][idx]
         target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0)
 
-        loss_bbox = F.smooth_l1_loss(src_boxes, target_boxes, reduction='none',beta=0.2)
+        loss_bbox = F.smooth_l1_loss(src_boxes, target_boxes, reduction='none',beta=0.3)
                 # Calculate areas of target boxes
         target_box_areas = target_boxes[:, 2] * target_boxes[:, 3]  # width * height for each box
 
         # Define weights based on size (inverse of area, normalized)
         # Adding epsilon to avoid division by zero
         epsilon = 1e-8
-        weights = 1 / (target_box_areas + epsilon)
+        weights = torch.clamp(1 / (target_box_areas + epsilon), min=0.1, max=10)
 
         # Normalize the weights to ensure sum(weights) = 1 (optional)
         weights = weights / weights.sum()
-
-        #weights=weights*5000
+        
         # Apply size-based weights to the bounding box loss
         weighted_loss_bbox = (loss_bbox * weights[:, None]).sum() / num_boxes
         losses = {}
