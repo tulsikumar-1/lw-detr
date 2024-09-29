@@ -81,7 +81,7 @@ class SetCriterion(nn.Module):
 
         if self.ia_bce_loss:
             alpha = self.focal_alpha
-            gamma = 2 
+            gamma = 3.5 
             src_boxes = outputs['pred_boxes'][idx]
             target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0)
 
@@ -124,7 +124,7 @@ class SetCriterion(nn.Module):
             cls_iou_func_targets[pos_ind] = pos_ious_func
             norm_cls_iou_func_targets = cls_iou_func_targets \
                 / (cls_iou_func_targets.view(cls_iou_func_targets.shape[0], -1, 1).amax(1, True) + 1e-8)
-            loss_ce = position_supervised_loss(src_logits, norm_cls_iou_func_targets, num_boxes, alpha=self.focal_alpha, gamma=2) * src_logits.shape[1]
+            loss_ce = position_supervised_loss(src_logits, norm_cls_iou_func_targets, num_boxes, alpha=self.focal_alpha, gamma=3.5) * src_logits.shape[1]
 
         elif self.use_varifocal_loss:
             src_boxes = outputs['pred_boxes'][idx]
@@ -142,7 +142,7 @@ class SetCriterion(nn.Module):
             pos_ind.append(target_classes_o)
             cls_iou_targets[pos_ind] = pos_ious
             #print(cls_iou_targets)
-            loss_ce = sigmoid_varifocal_loss(src_logits, cls_iou_targets, num_boxes, alpha=self.focal_alpha, gamma=3) * src_logits.shape[1]
+            loss_ce = sigmoid_varifocal_loss(src_logits, cls_iou_targets, num_boxes, alpha=self.focal_alpha, gamma=3.5) * src_logits.shape[1]
         else:
             target_classes  = torch.zeros(src_logits.shape[:2], dtype=torch.int64, device=src_logits.device)
 
@@ -154,7 +154,7 @@ class SetCriterion(nn.Module):
             target_classes_onehot.scatter_(2, target_classes.unsqueeze(-1), 1)
 
           # target_classes_onehot = target_classes_onehot[:,:,:-1]
-            loss_ce = sigmoid_focal_loss(src_logits, target_classes_onehot, num_boxes, alpha=self.focal_alpha, gamma=2) * src_logits.shape[1]
+            loss_ce = sigmoid_focal_loss(src_logits, target_classes_onehot, num_boxes, alpha=self.focal_alpha, gamma=3.5) * src_logits.shape[1]
         losses = {'loss_ce': loss_ce}
 
         if log:
