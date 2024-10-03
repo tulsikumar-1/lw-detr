@@ -38,19 +38,27 @@ class CocoDetection(torchvision.datasets.CocoDetection):
         target = {'image_id': image_id, 'annotations': target}
         img, target = self.prepare(img, target)
 
+        # Check for boxes and labels
+        if target['boxes'].numel() == 0 or target['labels'].numel() == 0:
+            print(f"Warning: No valid bounding boxes or labels for image id {image_id.item()}.")
+            # Create empty tensor if no boxes/labels
+            target['boxes'] = torch.zeros((0, 4), dtype=torch.float32)
+            target['labels'] = torch.zeros((0,), dtype=torch.int64)
+
         # Prepare the data for transformations
-        transformed_data = {}
-        transformed_data['image'] = img
-        transformed_data['bboxes'] = target['boxes'].numpy()  # Ensure bboxes are in numpy format
-        transformed_data['labels'] = target['labels'].numpy()  # Ensure labels are in numpy format
+        transformed_data = {
+            'image': img,
+            'bboxes': target['boxes'].numpy(),  # Ensure bboxes are in numpy format
+            'labels': target['labels'].numpy()   # Ensure labels are in numpy format
+        }
 
         if self._transforms is not None:
             transformed_data = self._transforms(**transformed_data)  # Unpack the dict for transformations
 
         # Get transformed image and target
         img = transformed_data['image']
-        target['boxes'] = transformed_data['bboxes']
-        target['labels'] = transformed_data['labels']
+        target['boxes'] = torch.tensor(transformed_data['bboxes'], dtype=torch.float32)  # Convert back to tensor
+        target['labels'] = torch.tensor(transformed_data['labels'], dtype=torch.int64)    # Convert back to tensor
 
         return img, target
 
@@ -107,7 +115,7 @@ def make_coco_transforms(image_set):
             ToTensorV2()
         ])
 
-    if image_set == 'val':
+    elif image_set == 'val':
         return A.Compose([
             A.Resize(height=640, width=640),
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
@@ -161,11 +169,7 @@ def build_dataset(image_folder, ann_file, image_set, batch_size, num_workers, sq
 
     if image_set == 'train':
         drop_last = True
-
-        # Initialize RandomSampler
         sampler = torch.utils.data.RandomSampler(dataset)
-
-        # Use the sampler in a DataLoader
         data_loader = DataLoader(dataset, batch_size=batch_size, sampler=sampler,
                                  collate_fn=misc.collate_fn, num_workers=num_workers, drop_last=drop_last, pin_memory=True)
 
