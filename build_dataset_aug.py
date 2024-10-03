@@ -17,14 +17,19 @@ Created on Thu Aug  8 19:51:20 2024
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 # ------------------------------------------------------------------------
 
+"""
+COCO dataset which returns image_id for evaluation.
+
+Mostly copy-paste from https://github.com/pytorch/vision/blob/13b35ff/references/detection/coco_utils.py
+"""
+
 import torch
 import torch.utils.data
 import torchvision
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
-from torch.utils.data import DataLoader
-import misc
 
+import transforms as T
+from torch.utils.data import DataLoader, DistributedSampler
+import misc
 
 class CocoDetection(torchvision.datasets.CocoDetection):
     def __init__(self, img_folder, ann_file, transforms):
@@ -37,33 +42,13 @@ class CocoDetection(torchvision.datasets.CocoDetection):
         image_id = self.ids[idx]
         target = {'image_id': image_id, 'annotations': target}
         img, target = self.prepare(img, target)
-
-        # Check for boxes and labels
-        if target['boxes'].numel() == 0 or target['labels'].numel() == 0:
-            print(f"Warning: No valid bounding boxes or labels for image id {image_id.item()}.")
-            # Create empty tensor if no boxes/labels
-            target['boxes'] = torch.zeros((0, 4), dtype=torch.float32)
-            target['labels'] = torch.zeros((0,), dtype=torch.int64)
-
-        # Prepare the data for transformations
-        transformed_data = {
-            'image': img,
-            'bboxes': target['boxes'].numpy(),  # Ensure bboxes are in numpy format
-            'labels': target['labels'].numpy()   # Ensure labels are in numpy format
-        }
-
         if self._transforms is not None:
-            transformed_data = self._transforms(**transformed_data)  # Unpack the dict for transformations
-
-        # Get transformed image and target
-        img = transformed_data['image']
-        target['boxes'] = torch.tensor(transformed_data['bboxes'], dtype=torch.float32)  # Convert back to tensor
-        target['labels'] = torch.tensor(transformed_data['labels'], dtype=torch.int64)    # Convert back to tensor
-
+            img, target = self._transforms(img, target)
         return img, target
 
 
 class ConvertCoco(object):
+
     def __call__(self, image, target):
         w, h = image.size
 
@@ -71,6 +56,7 @@ class ConvertCoco(object):
         image_id = torch.tensor([image_id])
 
         anno = target["annotations"]
+
         anno = [obj for obj in anno if 'iscrowd' not in obj or obj['iscrowd'] == 0]
 
         boxes = [obj["bbox"] for obj in anno]
@@ -82,6 +68,8 @@ class ConvertCoco(object):
 
         classes = [obj["category_id"] for obj in anno]
         classes = torch.tensor(classes, dtype=torch.int64)
+        # Adjust class labels from 1-5 to 0-4
+       # classes -= 1
 
         keep = (boxes[:, 3] > boxes[:, 1]) & (boxes[:, 2] > boxes[:, 0])
         boxes = boxes[keep]
@@ -105,61 +93,95 @@ class ConvertCoco(object):
 
 
 def make_coco_transforms(image_set):
+
+    normalize = T.Compose([
+        T.ToTensor(),
+        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+
+    scales = [480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800]
+
     if image_set == 'train':
-        return A.Compose([
-            A.HorizontalFlip(p=0.5),
-            A.RandomResizedCrop(height=640, width=640, scale=(0.8, 1.0)),
-            A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-            A.GaussNoise(var_limit=(10, 50), p=0.5),
-            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-            ToTensorV2()
+        return T.Compose([
+            T.RandomHorizontalFlip(),
+            T.RandomSelect(
+                T.RandomResize(scales, max_size=1333),
+                T.Compose([
+                    T.RandomResize([400, 500, 600]),
+                    T.RandomSizeCrop(384, 600),
+                    T.RandomResize(scales, max_size=1333),
+                ])
+            ),
+            normalize,
         ])
 
-    elif image_set == 'val':
-        return A.Compose([
-            A.Resize(height=640, width=640),
-            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-            ToTensorV2()
+    if image_set == 'val':
+        return T.Compose([
+            T.RandomResize([640], max_size=1333),
+            normalize,
+        ])
+    if image_set == 'val_speed':
+        return T.Compose([
+            T.SquareResize([640]),
+            normalize,
         ])
 
     raise ValueError(f'unknown {image_set}')
 
 
 def make_coco_transforms_square_div_64(image_set):
+    """
+    """
+
+    normalize = T.Compose([
+        T.ToTensor(),
+        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+
+
+    scales = [640]
+
     if image_set == 'train':
-        return A.Compose([
-            A.HorizontalFlip(p=0.5),
-            A.RandomResizedCrop(height=640, width=640, scale=(0.8, 1.0)),
-            A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-            A.GaussNoise(var_limit=(10, 50), p=0.5),
-            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-            ToTensorV2()
+        return T.Compose([
+            T.RandomHorizontalFlip(),
+            T.RandomSelect(
+                T.SquareResize(scales),
+                T.Compose([
+                    T.RandomResize([400, 500, 600]),
+                    T.RandomSizeCrop(384, 600),
+                    T.SquareResize(scales),
+                ]),
+            ),
+            normalize,
         ])
 
     elif image_set == 'val':
-        return A.Compose([
-            A.Resize(height=640, width=640),
-            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-            ToTensorV2()
+        return T.Compose([
+            T.SquareResize([640]),
+            normalize,
+        ])
+    elif image_set == 'val_speed':
+        return T.Compose([
+            T.SquareResize([640]),
+            normalize,
         ])
 
     raise ValueError(f'unknown {image_set}')
 
 
-def Calculate_class_weights(dataset):
+def Calculate_class_weights (dataset):
     labels = []
     for _, target in dataset:
         labels.extend(target['labels'].tolist())
-
+    
     class_counts = torch.bincount(torch.tensor(labels))
     class_weights = 1.0 / class_counts.float()
-
+    
     # Create sample weights
     sample_weights = [class_weights[target['labels']].mean() for _, target in dataset]
     sample_weights = torch.tensor(sample_weights)
-
+    
     return sample_weights
-
 
 def build_dataset(image_folder, ann_file, image_set, batch_size, num_workers, square_div_64=False):
     if square_div_64:
@@ -169,10 +191,14 @@ def build_dataset(image_folder, ann_file, image_set, batch_size, num_workers, sq
 
     if image_set == 'train':
         drop_last = True
+
+        # Initialize RandomSampler
         sampler = torch.utils.data.RandomSampler(dataset)
+        
+        # Use the sampler in a DataLoader
         data_loader = DataLoader(dataset, batch_size=batch_size, sampler=sampler,
                                  collate_fn=misc.collate_fn, num_workers=num_workers, drop_last=drop_last, pin_memory=True)
-
+        
     else:
         drop_last = False
         sampler_val = torch.utils.data.SequentialSampler(dataset)
@@ -181,6 +207,8 @@ def build_dataset(image_folder, ann_file, image_set, batch_size, num_workers, sq
 
     return data_loader
 
+
+      
 
 """
 example use
@@ -191,5 +219,4 @@ image_set='val'
 batch_size=8
 num_workers=2
 square_div_64=True
-train_dataset=build_dataset(img_folder, ann_file, image_set,batch_size,num_workers,square_div_64)
-"""
+train_dataset=build_dataset(img_folder, ann_file, image_set,batch_size,num_workers,square_div_64)"""
