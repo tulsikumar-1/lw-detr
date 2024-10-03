@@ -19,7 +19,7 @@ class CocoDetection(torchvision.datasets.CocoDetection):
         target = {'image_id': image_id, 'annotations': target}
         img, target = self.prepare(img, target)
 
-        # Albumentations expects numpy arrays for image
+        # Albumentations expects numpy arrays for image and bounding boxes
         img = np.array(img)
         h, w = img.shape[:2]
 
@@ -35,9 +35,13 @@ class CocoDetection(torchvision.datasets.CocoDetection):
                 class_labels=class_labels
             )
             img = transformed['image']
-            bboxes = torch.tensor(transformed['bboxes'], dtype=torch.float32)  # Keep normalized
+
+            # Denormalize bounding boxes back to pixel coordinates
+            bboxes = torch.tensor(transformed['bboxes'], dtype=torch.float32)
 
             if bboxes.size(0) > 0:  # Only process if there are bounding boxes
+                bboxes *= torch.tensor([w, h, w, h], dtype=torch.float32)
+
                 target['boxes'] = bboxes
                 target['labels'] = torch.tensor(transformed['class_labels'], dtype=torch.int64)
             else:
@@ -70,7 +74,7 @@ class ConvertCoco(object):
         classes = classes[keep]
         
         target = {}
-        target["boxes"] = boxes / torch.tensor([w, h, w, h], dtype=torch.float32)  # Normalize here
+        target["boxes"] = boxes
         target["labels"] = classes
         target["image_id"] = image_id
         
@@ -95,14 +99,14 @@ def make_coco_transforms(image_set):
             A.Resize(640, 640),  # Ensure all images are resized to 640x640
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensorV2()
-        ], bbox_params=A.BboxParams(format='coco', label_fields=['class_labels'], min_visibility=0.3))
+        ], bbox_params=A.BboxParams(format='xyxy', label_fields=['class_labels'], min_visibility=0.3))
 
     if image_set == 'val':
         return A.Compose([
             A.Resize(640, 640),  # Resize to 640x640 for validation
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensorV2()
-        ], bbox_params=A.BboxParams(format='coco', label_fields=['class_labels'], min_visibility=0.3))
+        ], bbox_params=A.BboxParams(format='xyxy', label_fields=['class_labels'], min_visibility=0.3))
 
     raise ValueError(f'unknown {image_set}')
 
