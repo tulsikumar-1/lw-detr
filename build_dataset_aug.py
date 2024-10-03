@@ -19,7 +19,7 @@ class CocoDetection(torchvision.datasets.CocoDetection):
         target = {'image_id': image_id, 'annotations': target}
         img, target = self.prepare(img, target)
 
-        # Albumentations expects numpy arrays for image and bounding boxes
+        # Albumentations expects numpy arrays for image
         img = np.array(img)
         h, w = img.shape[:2]
 
@@ -35,13 +35,9 @@ class CocoDetection(torchvision.datasets.CocoDetection):
                 class_labels=class_labels
             )
             img = transformed['image']
-
-            # Denormalize bounding boxes back to pixel coordinates
-            bboxes = torch.tensor(transformed['bboxes'], dtype=torch.float32)
+            bboxes = torch.tensor(transformed['bboxes'], dtype=torch.float32)  # Keep normalized
 
             if bboxes.size(0) > 0:  # Only process if there are bounding boxes
-                bboxes *= torch.tensor([w, h, w, h], dtype=torch.float32)
-
                 target['boxes'] = bboxes
                 target['labels'] = torch.tensor(transformed['class_labels'], dtype=torch.int64)
             else:
@@ -74,7 +70,7 @@ class ConvertCoco(object):
         classes = classes[keep]
         
         target = {}
-        target["boxes"] = boxes
+        target["boxes"] = boxes / torch.tensor([w, h, w, h], dtype=torch.float32)  # Normalize here
         target["labels"] = classes
         target["image_id"] = image_id
         
