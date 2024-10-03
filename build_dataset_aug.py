@@ -22,8 +22,9 @@ import torch.utils.data
 import torchvision
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
-from torch.utils.data import DataLoader, DistributedSampler
+from torch.utils.data import DataLoader
 import misc
+
 
 class CocoDetection(torchvision.datasets.CocoDetection):
     def __init__(self, img_folder, ann_file, transforms):
@@ -52,7 +53,6 @@ class CocoDetection(torchvision.datasets.CocoDetection):
         target['labels'] = transformed_data['labels']
 
         return img, target
-
 
 
 class ConvertCoco(object):
@@ -127,7 +127,7 @@ def make_coco_transforms_square_div_64(image_set):
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensorV2()
         ])
-    
+
     elif image_set == 'val':
         return A.Compose([
             A.Resize(height=640, width=640),
@@ -142,15 +142,16 @@ def Calculate_class_weights(dataset):
     labels = []
     for _, target in dataset:
         labels.extend(target['labels'].tolist())
-    
+
     class_counts = torch.bincount(torch.tensor(labels))
     class_weights = 1.0 / class_counts.float()
-    
+
     # Create sample weights
     sample_weights = [class_weights[target['labels']].mean() for _, target in dataset]
     sample_weights = torch.tensor(sample_weights)
-    
+
     return sample_weights
+
 
 def build_dataset(image_folder, ann_file, image_set, batch_size, num_workers, square_div_64=False):
     if square_div_64:
@@ -163,11 +164,11 @@ def build_dataset(image_folder, ann_file, image_set, batch_size, num_workers, sq
 
         # Initialize RandomSampler
         sampler = torch.utils.data.RandomSampler(dataset)
-        
+
         # Use the sampler in a DataLoader
         data_loader = DataLoader(dataset, batch_size=batch_size, sampler=sampler,
                                  collate_fn=misc.collate_fn, num_workers=num_workers, drop_last=drop_last, pin_memory=True)
-        
+
     else:
         drop_last = False
         sampler_val = torch.utils.data.SequentialSampler(dataset)
