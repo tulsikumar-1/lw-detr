@@ -24,7 +24,7 @@ class CocoDetection(torchvision.datasets.CocoDetection):
         h, w = img.shape[:2]
 
         # Normalize bounding boxes to be in range [0, 1] for Albumentations
-        bboxes = target['boxes'] / torch.tensor([w, h, w, h], dtype=torch.float32)
+        bboxes = target['boxes'] / torch.tensor([w, h, w, h], dtype=torch.float32)  # Normalize bounding boxes
         bboxes = bboxes.tolist()
         class_labels = target['labels'].tolist()
 
@@ -36,12 +36,13 @@ class CocoDetection(torchvision.datasets.CocoDetection):
             )
             img = transformed['image']
 
-            # Denormalize bounding boxes back to pixel coordinates
+            # Normalize bounding boxes to model input
             bboxes = torch.tensor(transformed['bboxes'], dtype=torch.float32)
 
-            if bboxes.size(0) > 0:  # Only process if there are bounding boxes
-                bboxes *= torch.tensor([w, h, w, h], dtype=torch.float32)
+            # Ensure bounding boxes are within the normalized range
+            bboxes = bboxes.clamp(min=0, max=1)
 
+            if bboxes.size(0) > 0:  # Only process if there are bounding boxes
                 target['boxes'] = bboxes
                 target['labels'] = torch.tensor(transformed['class_labels'], dtype=torch.int64)
             else:
@@ -65,27 +66,27 @@ class ConvertCoco(object):
         boxes[:, 2:] += boxes[:, :2]
         boxes[:, 0::2].clamp_(min=0, max=w)
         boxes[:, 1::2].clamp_(min=0, max=h)
-        
+
         classes = [obj["category_id"] for obj in anno]
         classes = torch.tensor(classes, dtype=torch.int64)
 
         keep = (boxes[:, 3] > boxes[:, 1]) & (boxes[:, 2] > boxes[:, 0])
         boxes = boxes[keep]
         classes = classes[keep]
-        
+
         target = {}
         target["boxes"] = boxes
         target["labels"] = classes
         target["image_id"] = image_id
-        
+
         area = torch.tensor([obj["area"] for obj in anno])
         iscrowd = torch.tensor([obj["iscrowd"] if "iscrowd" in obj else 0 for obj in anno])
-        
+
         target["area"] = area[keep]
         target["iscrowd"] = iscrowd[keep]
         target["orig_size"] = torch.as_tensor([int(h), int(w)])
         target["size"] = torch.as_tensor([int(h), int(w)])
-        
+
         return image, target
 
 
@@ -99,23 +100,20 @@ def make_coco_transforms(image_set):
             A.Resize(640, 640),  # Ensure all images are resized to 640x640
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensorV2()
-        ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.3))
+        ], bbox_params=A.BboxParams(format='coco', label_fields=['class_labels'], min_visibility=0.3))
 
     if image_set == 'val':
         return A.Compose([
             A.Resize(640, 640),  # Resize to 640x640 for validation
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensorV2()
-        ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.3))
+        ], bbox_params=A.BboxParams(format='coco', label_fields=['class_labels'], min_visibility=0.3))
 
     raise ValueError(f'unknown {image_set}')
 
 
 def build_dataset(image_folder, ann_file, image_set, batch_size, num_workers, square_div_64=False):
-    if square_div_64:
-        dataset = CocoDetection(image_folder, ann_file, transforms=make_coco_transforms(image_set))
-    else:
-        dataset = CocoDetection(image_folder, ann_file, transforms=make_coco_transforms(image_set))
+    dataset = CocoDetection(image_folder, ann_file, transforms=make_coco_transforms(image_set))
 
     if image_set == 'train':
         drop_last = True
@@ -129,3 +127,9 @@ def build_dataset(image_folder, ann_file, image_set, batch_size, num_workers, sq
                                  collate_fn=misc.collate_fn, num_workers=num_workers, drop_last=drop_last, pin_memory=True)
 
     return data_loader
+
+# Example usage:
+# image_folder = 'path/to/images'
+# ann_file = 'path/to/annotations.json'
+# train_loader = build_dataset(image_folder, ann_file, 'train', batch_size=8, num_workers=4)
+# val_loader = build_dataset(image_folder, ann_file, 'val', batch_size=8, num_workers=4)
