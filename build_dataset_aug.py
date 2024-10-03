@@ -36,9 +36,23 @@ class CocoDetection(torchvision.datasets.CocoDetection):
         image_id = self.ids[idx]
         target = {'image_id': image_id, 'annotations': target}
         img, target = self.prepare(img, target)
+
+        # Prepare the data for transformations
+        transformed_data = {}
+        transformed_data['image'] = img
+        transformed_data['bboxes'] = target['boxes'].numpy()  # Ensure bboxes are in numpy format
+        transformed_data['labels'] = target['labels'].numpy()  # Ensure labels are in numpy format
+
         if self._transforms is not None:
-            img, target = self._transforms(image=img, bboxes=target['boxes'], labels=target['labels'])
+            transformed_data = self._transforms(**transformed_data)  # Unpack the dict for transformations
+
+        # Get transformed image and target
+        img = transformed_data['image']
+        target['boxes'] = transformed_data['bboxes']
+        target['labels'] = transformed_data['labels']
+
         return img, target
+
 
 
 class ConvertCoco(object):
