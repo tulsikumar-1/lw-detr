@@ -99,14 +99,14 @@ def make_coco_transforms(image_set):
             A.Resize(640, 640),  # Ensure all images are resized to 640x640
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensorV2()
-        ], bbox_params=A.BboxParams(format='xyxy', label_fields=['class_labels'], min_visibility=0.3))
+        ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.3))
 
     if image_set == 'val':
         return A.Compose([
             A.Resize(640, 640),  # Resize to 640x640 for validation
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensorV2()
-        ], bbox_params=A.BboxParams(format='xyxy', label_fields=['class_labels'], min_visibility=0.3))
+        ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels'], min_visibility=0.3))
 
     raise ValueError(f'unknown {image_set}')
 
