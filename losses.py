@@ -81,7 +81,7 @@ class SetCriterion(nn.Module):
 
         if self.ia_bce_loss:
             alpha = self.focal_alpha
-            gamma = 3.5 
+            gamma = 2.5 
             src_boxes = outputs['pred_boxes'][idx]
             target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0)
 
@@ -155,7 +155,7 @@ class SetCriterion(nn.Module):
 
             target_classes_onehot = target_classes_onehot[:,:,:-1]
 
-            loss_ce = sigmoid_focal_loss(src_logits, target_classes_onehot, num_boxes, alpha=self.focal_alpha, gamma=3.5) * src_logits.shape[1]
+            loss_ce = sigmoid_focal_loss(src_logits, target_classes_onehot, num_boxes, alpha=self.focal_alpha, gamma=2.5) * src_logits.shape[1]
         losses = {'loss_ce': loss_ce}
 
         if log:
