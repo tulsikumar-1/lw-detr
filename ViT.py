@@ -256,7 +256,7 @@ class ViT(nn.Module):
         use_act_checkpoint=False,
         pretrain_img_size=224,
         pretrain_use_cls_token=True,
-        out_feature_indexes:list=[-1],
+        out_feature_indexes:list=[1,3,5],
         use_cae=True,
     ):
         """

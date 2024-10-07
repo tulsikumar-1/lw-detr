@@ -32,7 +32,7 @@ class PositionEmbeddingSine(nn.Module):
     This is a more standard version of the position embedding, very similar to the one
     used by the Attention is all you need paper, generalized to work on images.
     """
-    def __init__(self, num_pos_feats=64, temperature=10000, normalize=False, scale=None):
+    def __init__(self, num_pos_feats=64, temperature=1000, normalize=False, scale=None):
         super().__init__()
         self.num_pos_feats = num_pos_feats
         self.temperature = temperature
@@ -49,7 +49,7 @@ class PositionEmbeddingSine(nn.Module):
         self._forward_origin = self.forward
         self.forward = self.forward_export
 
-    def forward(self, tensor_list: NestedTensor, align_dim_orders = True):
+    def forward(self, tensor_list: NestedTensor, align_dim_orders = False):
         x = tensor_list.tensors
         mask = tensor_list.mask
         assert mask is not None

@@ -27,7 +27,7 @@ class Joiner(nn.Sequential):
         x,feats = self[0](tensor_list)
         pos = []
         for x_ in x:
-            pos.append(self[1](x_, align_dim_orders=False).to(x_.tensors.dtype))
+            pos.append(self[1](x_).to(x_.tensors.dtype))
         return x, pos,feats
 
 
