@@ -141,7 +141,9 @@ class SetCriterion(nn.Module):
             pos_ind=[id for id in idx]
             pos_ind.append(target_classes_o)
             cls_iou_targets[pos_ind] = pos_ious
-            loss_ce = sigmoid_varifocal_loss(src_logits, cls_iou_targets, num_boxes, alpha=self.focal_alpha, gamma=2.5) * src_logits.shape[1]
+            target_classes  = torch.zeros(src_logits.shape[:2], dtype=torch.int64, device=src_logits.device)
+            target_classes[idx] = target_classes_o
+            loss_ce = sigmoid_varifocal_loss(src_logits,target_classes, cls_iou_targets, num_boxes, alpha=self.focal_alpha, gamma=2.5) * src_logits.shape[1]
         else:
            # target_classes = torch.full(src_logits.shape[:2], self.num_classes,
            #                             dtype=torch.int64, device=src_logits.device)
@@ -152,7 +154,7 @@ class SetCriterion(nn.Module):
                                                 dtype=src_logits.dtype, layout=src_logits.layout, device=src_logits.device)
             target_classes_onehot.scatter_(2, target_classes.unsqueeze(-1), 1)
 
-            #target_classes_onehot = target_classes_onehot[:,:,:-1]
+            target_classes_onehot = target_classes_onehot[:,:,:-1]
 
             loss_ce = sigmoid_focal_loss(src_logits, target_classes_onehot, num_boxes, alpha=self.focal_alpha, gamma=2.5) * src_logits.shape[1]
         losses = {'loss_ce': loss_ce}
@@ -301,11 +303,11 @@ def sigmoid_focal_loss(inputs, targets, num_boxes, alpha: float = 0.25, gamma: f
     return loss.mean(1).sum() / num_boxes
 
 
-def sigmoid_varifocal_loss(inputs, targets, num_boxes, alpha: float = 0.25, gamma: float = 2):
+def sigmoid_varifocal_loss(inputs,labels, targets, num_boxes, alpha: float = 0.25, gamma: float = 2):
     prob = inputs.sigmoid()
-    focal_weight = alpha*targets * (targets > 0.0).float() + \
-            (1 - alpha) * (prob - targets).abs().pow(gamma) * \
-            (targets <= 0.0).float()
+    
+    focal_weight =  alpha * (prob).pow(gamma) *(1-labels)+targets*labels
+
     ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
     loss = ce_loss * focal_weight
 
