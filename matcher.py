@@ -85,7 +85,7 @@ class HungarianMatcher(nn.Module):
         cost_giou = -giou
 
         # Compute the classification cost.
-        gamma = 3.5
+        gamma = 2.0
         
         # Safe computation of focal loss
         epsilon = 1e-8
