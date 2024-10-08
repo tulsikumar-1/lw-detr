@@ -31,19 +31,20 @@ class HungarianMatcher(nn.Module):
     while the others are un-matched (and thus treated as non-objects).
     """
 
-    def __init__(self, cost_class: float = 1, cost_bbox: float = 1, cost_giou: float = 1, focal_alpha: float = 0.25, use_pos_only: bool = False,
+    def __init__(self, cost_class: float = 1, cost_bbox: float = 1, cost_giou: float = 1, focal_alpha: torch.Tensor = None, use_pos_only: bool = False,
                  use_position_modulated_cost: bool = False):
         """Creates the matcher
         Params:
             cost_class: This is the relative weight of the classification error in the matching cost
             cost_bbox: This is the relative weight of the L1 error of the bounding box coordinates in the matching cost
             cost_giou: This is the relative weight of the giou loss of the bounding box in the matching cost
+            focal_alpha: A tensor of class-wise weights for the focal loss. Should have the same length as the number of classes.
         """
         super().__init__()
         self.cost_class = cost_class
         self.cost_bbox = cost_bbox
         self.cost_giou = cost_giou
-        assert cost_class != 0 or cost_bbox != 0 or cost_giou != 0, "all costs cant be 0"
+        assert cost_class != 0 or cost_bbox != 0 or cost_giou != 0, "all costs can't be 0"
         self.focal_alpha = focal_alpha
 
     @torch.no_grad()
@@ -76,26 +77,26 @@ class HungarianMatcher(nn.Module):
         tgt_bbox = torch.cat([v["boxes"] for v in targets])
 
         out_bbox = torch.clamp(out_bbox, min=0)
-        # Compute the giou cost betwen boxes
+        # Compute the giou cost between boxes
         if (out_bbox < 0).any():
-          raise ValueError("Predicted boxes contain negative values")
+            raise ValueError("Predicted boxes contain negative values")
         
         giou = generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), box_cxcywh_to_xyxy(tgt_bbox))
         cost_giou = -giou
 
         # Compute the classification cost.
-        alpha = self.focal_alpha
         gamma = 3.5
         
-
-                # Safe computation of focal loss
+        # Safe computation of focal loss
         epsilon = 1e-8
         out_prob = torch.clamp(out_prob, epsilon, 1 - epsilon)  # Avoid log(0)
-        
-        neg_cost_class = (1 - alpha) * (out_prob ** gamma) * (-(1 - out_prob).log())
-        pos_cost_class = alpha * ((1 - out_prob) ** gamma) * (-out_prob.log())
-        cost_class = pos_cost_class[:, tgt_ids] - neg_cost_class[:, tgt_ids]
 
+        # Compute class-wise focal cost
+        neg_cost_class = (1 - self.focal_alpha) * (out_prob ** gamma) * (-(1 - out_prob).log())
+        pos_cost_class = self.focal_alpha * ((1 - out_prob) ** gamma) * (-out_prob.log())
+
+        # Ensure pos_cost_class and neg_cost_class align with target ids
+        cost_class = pos_cost_class[:, tgt_ids] - neg_cost_class[:, tgt_ids]
 
         # Compute the L1 cost between boxes
         cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1)
@@ -126,4 +127,3 @@ class HungarianMatcher(nn.Module):
                     for indice1, indice2 in zip(indices, indices_g)
                 ]
         return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
-
