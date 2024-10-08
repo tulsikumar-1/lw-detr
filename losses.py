@@ -303,7 +303,7 @@ def sigmoid_focal_loss(inputs, targets, num_boxes, alpha: float = 0.25, gamma: f
 
 def sigmoid_varifocal_loss(inputs, targets, num_boxes, alpha: float = 0.25, gamma: float = 2):
     prob = inputs.sigmoid()
-    focal_weight = targets * (targets > 0.0).float() + \
+    focal_weight = alpha*targets * (targets > 0.0).float() + \
             (1 - alpha) * (prob - targets).abs().pow(gamma) * \
             (targets <= 0.0).float()
     ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
