@@ -81,7 +81,7 @@ class SetCriterion(nn.Module):
 
         if self.ia_bce_loss:
             alpha = self.focal_alpha
-            gamma = 2.5 
+            gamma = 3.5 
             src_boxes = outputs['pred_boxes'][idx]
             target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0)
 
@@ -135,28 +135,27 @@ class SetCriterion(nn.Module):
                 box_ops.box_cxcywh_to_xyxy(target_boxes))[0])
             pos_ious = iou_targets.clone().detach()
 
-            cls_iou_targets = torch.zeros((src_logits.shape[0], src_logits.shape[1],self.num_classes),
+            cls_iou_targets = torch.zeros((src_logits.shape[0], src_logits.shape[1],self.num_classes+1),
                                         dtype=src_logits.dtype, device=src_logits.device)
 
             pos_ind=[id for id in idx]
             pos_ind.append(target_classes_o)
             cls_iou_targets[pos_ind] = pos_ious
-            target_classes  = torch.zeros(src_logits.shape[:2], dtype=torch.int64, device=src_logits.device)
-            target_classes[idx] = target_classes_o
-            loss_ce = sigmoid_varifocal_loss(src_logits,target_classes, cls_iou_targets, num_boxes, alpha=self.focal_alpha, gamma=2.5) * src_logits.shape[1]
+            #print(cls_iou_targets)
+            loss_ce = sigmoid_varifocal_loss(src_logits, cls_iou_targets, num_boxes, alpha=self.focal_alpha, gamma=3.5) * src_logits.shape[1]
         else:
            # target_classes = torch.full(src_logits.shape[:2], self.num_classes,
            #                             dtype=torch.int64, device=src_logits.device)
             target_classes  = torch.zeros(src_logits.shape[:2], dtype=torch.int64, device=src_logits.device)
             target_classes[idx] = target_classes_o
 
-            target_classes_onehot = torch.zeros([src_logits.shape[0], src_logits.shape[1], src_logits.shape[2]],
+            target_classes_onehot = torch.zeros([src_logits.shape[0], src_logits.shape[1], src_logits.shape[2]+1],
                                                 dtype=src_logits.dtype, layout=src_logits.layout, device=src_logits.device)
             target_classes_onehot.scatter_(2, target_classes.unsqueeze(-1), 1)
 
             target_classes_onehot = target_classes_onehot[:,:,:-1]
 
-            loss_ce = sigmoid_focal_loss(src_logits, target_classes_onehot, num_boxes, alpha=self.focal_alpha, gamma=2.5) * src_logits.shape[1]
+            loss_ce = sigmoid_focal_loss(src_logits, target_classes_onehot, num_boxes, alpha=self.focal_alpha, gamma=3.5) * src_logits.shape[1]
         losses = {'loss_ce': loss_ce}
 
         if log:
@@ -303,11 +302,11 @@ def sigmoid_focal_loss(inputs, targets, num_boxes, alpha: float = 0.25, gamma: f
     return loss.mean(1).sum() / num_boxes
 
 
-def sigmoid_varifocal_loss(inputs,labels, targets, num_boxes, alpha: float = 0.25, gamma: float = 2):
+def sigmoid_varifocal_loss(inputs, targets, num_boxes, alpha: float = 0.25, gamma: float = 2):
     prob = inputs.sigmoid()
-    
-    focal_weight =  alpha * (prob).pow(gamma) *(1-labels)+targets*labels
-
+    focal_weight = targets * (targets != 0.0).float() + \
+            (1 - alpha) * (prob - targets).abs().pow(gamma) * \
+            (targets == 0.0).float()
     ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
     loss = ce_loss * focal_weight
 
