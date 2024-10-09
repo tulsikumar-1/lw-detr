@@ -58,27 +58,33 @@ def box_iou(boxes1, boxes2):
 
 
 def generalized_box_iou(boxes1, boxes2):
-    """
-    Generalized IoU from https://giou.stanford.edu/
-
-    The boxes should be in [x0, y0, x1, y1] format
-
-    Returns a [N, M] pairwise matrix, where N = len(boxes1)
-    and M = len(boxes2)
-    """
-    # degenerate boxes gives inf / nan results
-    # so do an early check
-    assert (boxes1[:, 2:] >= boxes1[:, :2]).all()
-    assert (boxes2[:, 2:] >= boxes2[:, :2]).all()
+    # Ensure boxes are in the correct format (x_min, y_min, x_max, y_max)
+    assert (boxes1[:, 2:] >= boxes1[:, :2]).all(), f"Invalid boxes1: {boxes1}"
+    assert (boxes2[:, 2:] >= boxes2[:, :2]).all(), f"Invalid boxes2: {boxes2}"
+    
+    # Continue with your IoU and CIoU calculations
     iou, union = box_iou(boxes1, boxes2)
+    iou = iou.clamp(min=0.0, max=1.0)  # Ensure IoU stays between 0 and 1
 
-    lt = torch.min(boxes1[:, None, :2], boxes2[:, :2])
-    rb = torch.max(boxes1[:, None, 2:], boxes2[:, 2:])
+    center1 = (boxes1[:, None, :2] + boxes1[:, None, 2:]) / 2  # [N, M, 2]
+    center2 = (boxes2[:, :2] + boxes2[:, 2:]) / 2  # [M, 2]
 
-    wh = (rb - lt).clamp(min=0)  # [N,M,2]
-    area = wh[:, :, 0] * wh[:, :, 1]
-    area = area.clamp(min=1e-10)
-    return iou - (area - union) / area
+    center_dist = ((center1 - center2) ** 2).sum(dim=-1)  # [N, M]
+    lt = torch.min(boxes1[:, None, :2], boxes2[:, :2])  # [N, M, 2]
+    rb = torch.max(boxes1[:, None, 2:], boxes2[:, 2:])  # [N, M, 2]
+    enclosing_diag = ((rb - lt) ** 2).sum(dim=-1).clamp(min=1e-10)  # [N, M]
+
+    wh1 = boxes1[:, None, 2:] - boxes1[:, None, :2]  # width and height of boxes1
+    wh2 = boxes2[:, 2:] - boxes2[:, :2]  # width and height of boxes2
+
+    v = (4 / (torch.pi ** 2)) * ((torch.atan(wh1[:, :, 0] / wh1[:, :, 1].clamp(min=1e-10)) -
+                                  torch.atan(wh2[:, 0] / wh2[:, 1].clamp(min=1e-10))) ** 2)  # Aspect ratio term
+
+    alpha = v / (1 - iou + v).clamp(min=1e-10)
+    penalty = (center_dist / enclosing_diag) - alpha * v
+    ciou = iou - penalty
+
+    return ciou.clamp(min=-1,max=1)  # Prevent NaN by clamping CIoU
 
 
 def masks_to_boxes(masks):
