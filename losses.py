@@ -135,7 +135,7 @@ class SetCriterion(nn.Module):
                 box_ops.box_cxcywh_to_xyxy(target_boxes))[0])
             pos_ious = iou_targets.clone().detach()
 
-            cls_iou_targets = torch.zeros((src_logits.shape[0], src_logits.shape[1],self.num_classes+1),
+            cls_iou_targets = torch.zeros((src_logits.shape[0], src_logits.shape[1],self.num_classes),
                                         dtype=src_logits.dtype, device=src_logits.device)
 
             pos_ind=[id for id in idx]
@@ -305,7 +305,7 @@ def sigmoid_focal_loss(inputs, targets, num_boxes, alpha: torch.Tensor = None, g
 
 
 
-def sigmoid_varifocal_loss(inputs, targets, num_boxes, alpha: float = 0.25, gamma: float = 2):
+def sigmoid_varifocal_loss(inputs, targets, num_boxes, alpha: torch.Tensor = None, gamma: float = 2):
     prob = inputs.sigmoid()
     focal_weight = targets * (targets != 0.0).float() + \
             (1 - alpha) * (prob - targets).abs().pow(gamma) * \
