@@ -81,7 +81,7 @@ class SetCriterion(nn.Module):
 
         if self.ia_bce_loss:
             alpha = self.focal_alpha
-            gamma = 2.0 
+            gamma = 2.5 
             src_boxes = outputs['pred_boxes'][idx]
             target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0)
 
