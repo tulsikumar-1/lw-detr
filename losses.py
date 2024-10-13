@@ -182,29 +182,20 @@ class SetCriterion(nn.Module):
            targets dicts must contain the key "boxes" containing a tensor of dim [nb_target_boxes, 4]
            The target boxes are expected in format (center_x, center_y, w, h), normalized by the image size.
         """
+        assert 'pred_boxes' in outputs
+        idx = self._get_src_permutation_idx(indices)
+        src_boxes = outputs['pred_boxes'][idx]
+        target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0)
+
+        loss_bbox = F.l1_loss(src_boxes, target_boxes, reduction='none')
+
         losses = {}
-        src_boxes = outputs['pred_boxes']
-        if self.weight_dict['loss_bbox']:
-          assert 'pred_boxes' in outputs
-          idx = self._get_src_permutation_idx(indices)
-          
-          target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0)
+        losses['loss_bbox'] = loss_bbox.sum() / num_boxes
 
-          loss_bbox = F.l1_loss(src_boxes, target_boxes, reduction='none')
-
-          
-          losses['loss_bbox'] = loss_bbox.sum() / num_boxes
-          print(losses['loss_bbox'])
-        else:
-          losses['loss_bbox'] =torch.tensor([0],device=src_boxes.device)
-
-        if self.weight_dict['loss_giou']:
-          loss_giou = 1 - torch.diag(box_ops.generalized_box_iou(
-              box_ops.box_cxcywh_to_xyxy(src_boxes),
-              box_ops.box_cxcywh_to_xyxy(target_boxes)))
-          losses['loss_giou'] = loss_giou.sum() / num_boxes
-        else:
-          losses['loss_giou'] =torch.tensor([0],device=src_boxes.device)
+        loss_giou = 1 - torch.diag(box_ops.generalized_box_iou(
+            box_ops.box_cxcywh_to_xyxy(src_boxes),
+            box_ops.box_cxcywh_to_xyxy(target_boxes)))
+        losses['loss_giou'] = loss_giou.sum() / num_boxes
         return losses
 
     def _get_src_permutation_idx(self, indices):
@@ -316,9 +307,9 @@ def sigmoid_focal_loss(inputs, targets, num_boxes, alpha: torch.Tensor = None, g
 
 def sigmoid_varifocal_loss(inputs, targets, num_boxes, alpha: torch.Tensor = None, gamma: float = 2):
     prob = inputs.sigmoid()
-    focal_weight = alpha * (targets != 0.0).float() + \
+    focal_weight = (targets * (targets > 0.0).float() + \
             (1 - alpha) * (prob - targets).abs().pow(gamma) * \
-            (targets == 0.0).float()
+            (targets <= 0.0).float()
     ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
     loss = ce_loss * focal_weight
 
