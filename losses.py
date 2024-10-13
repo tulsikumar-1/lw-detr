@@ -142,7 +142,7 @@ class SetCriterion(nn.Module):
             pos_ind.append(target_classes_o)
             cls_iou_targets[pos_ind] = pos_ious
             #print(cls_iou_targets)
-            loss_ce = sigmoid_varifocal_loss(src_logits, cls_iou_targets, num_boxes, alpha=self.focal_alpha, gamma=2.5) * src_logits.shape[1]
+            loss_ce = sigmoid_varifocal_loss(src_logits, cls_iou_targets, num_boxes, alpha=self.focal_alpha, gamma=5) * src_logits.shape[1]
         else:
             target_classes = torch.full(src_logits.shape[:2], self.num_classes,
                                         dtype=torch.int64, device=src_logits.device)
@@ -182,20 +182,29 @@ class SetCriterion(nn.Module):
            targets dicts must contain the key "boxes" containing a tensor of dim [nb_target_boxes, 4]
            The target boxes are expected in format (center_x, center_y, w, h), normalized by the image size.
         """
-        assert 'pred_boxes' in outputs
-        idx = self._get_src_permutation_idx(indices)
-        src_boxes = outputs['pred_boxes'][idx]
-        target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0)
-
-        loss_bbox = F.l1_loss(src_boxes, target_boxes, reduction='none')
-
         losses = {}
-        losses['loss_bbox'] = loss_bbox.sum() / num_boxes
+        src_boxes = outputs['pred_boxes']
+        if self.weight_dict['loss_bbox']:
+          assert 'pred_boxes' in outputs
+          idx = self._get_src_permutation_idx(indices)
+          
+          target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0)
 
-        loss_giou = 1 - torch.diag(box_ops.generalized_box_iou(
-            box_ops.box_cxcywh_to_xyxy(src_boxes),
-            box_ops.box_cxcywh_to_xyxy(target_boxes)))
-        losses['loss_giou'] = loss_giou.sum() / num_boxes
+          loss_bbox = F.l1_loss(src_boxes, target_boxes, reduction='none')
+
+          
+          losses['loss_bbox'] = loss_bbox.sum() / num_boxes
+          print(losses['loss_bbox'])
+        else:
+          losses['loss_bbox'] =torch.tensor([0],device=src_boxes.device)
+
+        if self.weight_dict['loss_giou']:
+          loss_giou = 1 - torch.diag(box_ops.generalized_box_iou(
+              box_ops.box_cxcywh_to_xyxy(src_boxes),
+              box_ops.box_cxcywh_to_xyxy(target_boxes)))
+          losses['loss_giou'] = loss_giou.sum() / num_boxes
+        else:
+          losses['loss_giou'] =torch.tensor([0],device=src_boxes.device)
         return losses
 
     def _get_src_permutation_idx(self, indices):
