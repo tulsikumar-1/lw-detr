@@ -26,12 +26,12 @@ Each image is resized to 640x640 pixels for uniformity. Below are some sample im
 
 The following table summarizes the performance of various object detection models on the dataset, comparing parameters such as model size, inference time, FLOPs, and accuracy (mAP):
 
-| **Model**     | **Params (M)** | **Inference Time (ms)** | **GFLOPs** | **mAP@50** | **mAP@50-95** |
-|---------------|----------------|-------------------------|------------|------------|---------------|
-| Tiny          | 9.285          | 21.50                   | 11.2       | 0.835      | 0.391         |
-| Tiny (Pruned) | 9.285          | 18.45                   | 11.2       | 0.833      | 0.381         |
-| KD Tiny       | 9.285          | 21.50                   | 11.2       | 0.850      | 0.423         |
-| Medium        | 12.497         | 26.75                   | 18.6       | 0.845      | 0.442         |
-| Large         | 27.075         | 29.48                   | 42.8       | 0.851      | 0.538         |
-| YOLOv8n       | 3.15           | 4.4                     | 8.90       | 0.826      | 0.573         |
-| RT-DETR-l     | 32.97          | 7.2                     | 108.3      | 0.833      | 0.580         |
+| **Model**     | **Params (M)** | **Inference Time (ms)** |  **GFLOPs**  | **mAP@50** | **mAP@50-95** |
+|---------------|----------------|-------------------------|--------------|------------|---------------|
+| Tiny          | 9.285          | 21.50                   |   11.2       | 0.835      | 0.391         |
+| Tiny (Pruned) | 9.285          | 18.45                   |   11.2       | 0.833      | 0.381         |
+| KD Tiny       | 9.285          | 21.50                   |   11.2       | 0.850      | 0.423         |
+| Medium        |12.497          | 26.75                   |   18.6       | 0.845      | 0.442         |
+| Large         |27.075          | 29.48                   |   42.8       | 0.851      | 0.538         |
+| YOLOv8n       | 3.15           |  4.40                   |    8.9       | 0.826      | 0.573         |
+| RT-DETR-l     |32.97           |  7.20                   |  108.3       | 0.833      | 0.580         |
