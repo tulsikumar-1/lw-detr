@@ -19,7 +19,8 @@ The dataset is split into the following sections:
 
 Each image is resized to 640x640 pixels for uniformity. Below are some sample images from the dataset:
 
-![Dataset Samples](Images/data.png)
+![518_predictions](https://github.com/user-attachments/assets/1a0856ff-460d-4b80-b350-3441d9326f2e)
+
 
 ## Model Performance Comparison
 
