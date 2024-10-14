@@ -1,1 +1,32 @@
-# lw-detr
+Object Detection for Traffic Monitoring
+Object detection is a crucial task in computer vision, involving not only identifying objects in an image or video but also locating them using bounding boxes. This goes beyond basic image classification by providing the precise location of objects. Object detection plays a vital role in numerous real-world applications, such as video surveillance, facial recognition, and autonomous driving. It is indispensable for tasks like identifying vehicles, pedestrians, and other objects in a traffic environment. Despite significant advancements, challenges remain in improving real-time performance and detecting small or overlapping objects.
+
+Cross-road Traffic Monitoring Dataset
+This research utilizes the "Traffic Monitoring" dataset for object detection in traffic environments. The dataset includes images categorized into five different vehicle types:
+
+Truck
+Motorbike
+Bus
+Car
+Bicycle
+The dataset is split into the following sections:
+
+Training: 2,440 images (79%)
+Validation: 567 images (18%)
+Testing: 71 images (3%)
+Each image is resized to 640x640 pixels for uniformity. Below are some sample images from the dataset:
+
+
+
+Model Performance Comparison
+The following table summarizes the performance of various object detection models on the dataset, comparing parameters such as model size, inference time, FLOPs, and accuracy (mAP):
+
+Model	Params (M)	Inference Time (ms)	GFLOPs	mAP@50	mAP@50-95
+Tiny	9.285	21.50	11.2	0.835	0.391
+Tiny (Pruned)	9.285	18.45	11.2	0.833	0.381
+KD Tiny	9.285	21.50	11.2	0.850	0.423
+Medium	12.497	26.75	18.6	0.845	0.442
+Large	27.075	29.48	42.8	0.851	0.538
+YOLOv8n	3.15	4.4	8.90	0.826	0.573
+RT-DETR-l	32.97	7.2	108.3	0.833	0.580
+This comparison highlights the trade-offs between model size, computational efficiency, and accuracy across different object detection models.
