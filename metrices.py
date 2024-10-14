@@ -1,15 +1,12 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Aug 15 23:02:01 2024
-
-@author: Administrator
-"""
 import numpy as np
 import json
 
+def apply_confidence_threshold(predictions, threshold):
+    """ Filter predictions based on a confidence threshold. """
+    return [pred for pred in predictions if pred['score'] >= threshold]
 
 
-def compute_metrices(pred_file, val_ann_file, iou_range=(0.5, 0.5), step=0.05, confidence_threshold=0.0):
+def compute_metrices(pred_file, val_ann_file, iou_threshould, confidence_threshold=0.0):
     with open(pred_file, 'r') as file:
         predictions = json.load(file)
 
@@ -17,219 +14,164 @@ def compute_metrices(pred_file, val_ann_file, iou_range=(0.5, 0.5), step=0.05, c
         ground_truths = json.load(file)
         annotations = ground_truths['annotations']
 
-    image_id = 0
-    aps = []
-    precision_scores = []
-    recall_scores = []
 
-    while True:
-        preds = [gt for gt in predictions if gt['image_id'] == image_id]
-        preds = [gt for gt in preds if gt['category_id'] != 0]
-        if not preds:  # Break the loop if no more predictions for next image_id
-            break
+    precision, recall, ap,_,_,aps=calculate_precision_recall_ap(predictions, annotations, iou_threshould,confidence_threshold)
 
-        g_truths = [gt for gt in annotations if gt['image_id'] == image_id]
-        gt_boxes, _, gt_labels = extract_coco_data(g_truths)
-        preds_nms = apply_nms(preds, confidence_threshold)
 
-        precision, recall, map_score = compute_map_over_iou_range(preds_nms, gt_boxes, gt_labels, iou_range=iou_range, step=step, confidence_threshold=confidence_threshold)
-
-        # Avoid NaN by checking if lists are non-empty
-        if precision and recall:
-            precision_scores.append(np.mean(precision))
-            recall_scores.append(np.mean(recall))
-            aps.append(map_score)
-
-        image_id += 1
-
-    if not precision_scores or not recall_scores:
-        return 0.0, 0.0, np.mean(aps) if aps else 0.0
-
-    return np.mean(precision_scores), np.mean(recall_scores), np.mean(aps)
+    return precision,recall, ap,aps
 
 
 
 
+#necessary functions here (extract_coco_data, apply_nms, calculate_iou)
 def calculate_iou(box1, box2):
-    """ Calculate the Intersection over Union (IoU) of two bounding boxes. """
-    box1 = [box1[0], box1[1], box1[0] + box1[2], box1[1] + box1[3]]
-    box2 = [box2[0], box2[1], box2[0] + box2[2], box2[1] + box2[3]]
-
-    xi1 = max(box1[0], box2[0])
-    yi1 = max(box1[1], box2[1])
-    xi2 = min(box1[2], box2[2])
-    yi2 = min(box1[3], box2[3])
-
-    inter_area = max(0, xi2 - xi1) * max(0, yi2 - yi1)
-
-    box1_area = (box1[2] - box1[0]) * (box1[3] - box1[1])
-    box2_area = (box2[2] - box2[0]) * (box2[3] - box2[1])
-
+    """Calculate the Intersection over Union (IoU) of two bounding boxes."""
+    x1, y1, x2, y2 = max(box1[0], box2[0]), max(box1[1], box2[1]), min(box1[0] + box1[2], box2[0] + box2[2]), min(box1[1] + box1[3], box2[1] + box2[3])
+    inter_area = max(0, x2 - x1) * max(0, y2 - y1)
+    box1_area, box2_area = box1[2] * box1[3], box2[2] * box2[3]
     union_area = box1_area + box2_area - inter_area
-
-    iou = inter_area / union_area
-    return iou
+    return inter_area / union_area if union_area > 0 else 0
 
 def extract_coco_data(data):
-    """ Extract bounding boxes, scores, and labels from COCO-format data. """
+    """Extract bounding boxes, scores, and labels from COCO-format data."""
     boxes = [item['bbox'] for item in data]
-    scores = [item.get('score', 1.0) for item in data]  # Use 1.0 as default for ground truth
+    scores = [item.get('score', 1.0) for item in data]  # Default to 1.0 for ground truth
     labels = [item['category_id'] for item in data]
     return boxes, scores, labels
 
-def apply_confidence_threshold(predictions, threshold):
-    """ Filter predictions based on a confidence threshold. """
-    return [pred for pred in predictions if pred['score'] >= threshold]
-
-def calculate_precision_recall_ap(pred_boxes, pred_scores, pred_labels, gt_boxes, gt_labels, iou_threshold=0.5):
-    tp = []
-    fp = []
-    all_scores = []
-
-    matched_gt = set()  # To keep track of which ground truth boxes have been matched
-  #  if len(pred_boxes)==0:
-  #    return [0],[0],0
-    for pred_box, score, pred_label in zip(pred_boxes, pred_scores, pred_labels):
-        best_iou = 0
-        best_gt_index = -1
-
-        for i, (gt_box, gt_label) in enumerate(zip(gt_boxes, gt_labels)):
-            if i in matched_gt:  # Skip already matched ground truth boxes
-                continue
-
-            iou = calculate_iou(pred_box, gt_box)
-            if iou > best_iou and pred_label == gt_label:  # Ensure class IDs match
-                best_iou = iou
-                best_gt_index = i
-
-        if best_iou >= iou_threshold and best_gt_index != -1:
-            tp.append(1)  # True Positive
-            fp.append(0)  # Not a False Positive
-            matched_gt.add(best_gt_index)  # Mark this ground truth as matched
-        else:
-            tp.append(0)  # Not a True Positive
-            fp.append(1)  # False Positive
-
-        all_scores.append(score)
-
-
-    # Convert to numpy arrays
-    tp = np.array(tp)
-    fp = np.array(fp)
-    all_scores = np.array(all_scores)
-
-    # Sort by scores descending
-    indices = np.argsort(-all_scores)
-    tp = tp[indices]
-    fp = fp[indices]
-    all_scores = all_scores[indices]
-   # print(all_scores)
-
-   # print(f'true positive :{tp}')
-   # print(f'False positive :{fp}')
-    # Calculate cumulative true positives and false positives
-    tp_cumsum = np.cumsum(tp)
-    fp_cumsum = np.cumsum(fp)
-
-    # Calculate recall and precision
-    recalls = tp_cumsum / len(gt_boxes)
-    precisions = tp_cumsum / (tp_cumsum + fp_cumsum)
-    precisions1 = np.insert(precisions, 0, 1)
-    recalls1 = np.insert(recalls, 0, 0)
-   # print(f'precision:  {precisions}')
-   # print(f'recalls:  {recalls}')
-    # Compute Average Precision (AP)
-    ap = np.trapz(precisions1, recalls1)  # Area under the precision-recall curve
-
-    return precisions, recalls, ap
-
-def compute_map_over_iou_range(predictions, gt_boxes, gt_labels, iou_range=(0.5, 0.95), step=0.05, confidence_threshold=0.5):
-    # Apply confidence thresholding
-    filtered_predictions = apply_confidence_threshold(predictions, confidence_threshold)
-
-    # Extract boxes, scores, and labels after thresholding
-    pred_boxes, pred_scores, pred_labels = extract_coco_data(filtered_predictions)
-    if iou_range[0]!=iou_range[1]:
-      iou_thresholds = np.arange(iou_range[0], iou_range[1] + step, step)
-    else:
-      iou_thresholds=[iou_range[0]]
-    #print(f'iou_thresholds : {iou_thresholds}')
-    aps = []
-    precisions=[]
-    recalls=[]
-
-    for iou_threshold in iou_thresholds:
-        pre, rec, ap = calculate_precision_recall_ap(pred_boxes, pred_scores, pred_labels, gt_boxes, gt_labels, iou_threshold)
-       # print(f'AP: {ap: .2f} for threshold :{iou_threshold : .2f}')
-
-        aps.append(ap)
-        precisions.append(pre.mean())
-        recalls.append(rec.mean())
-
-       # print(ap)
-       # print('\n')
-
-    # Calculate the mean of the APs over all IoU thresholds
-    map_score = np.mean(aps)
-
-    return precisions,recalls,map_score
-
-
-def is_box_inside(bboxA, bboxB):
-    """
-    Check if bounding box A is entirely within bounding box B.
-
-    Args:
-        bboxA (tuple): (xmin, ymin, xmax, ymax) for box A.
-        bboxB (tuple): (xmin, ymin, xmax, ymax) for box B.
-
-    Returns:
-        bool: True if bboxA is inside bboxB, False otherwise.
-    """
-    # Unpack the bounding boxes
-    xminA, yminA, xmaxA, ymaxA = bboxA[0],bboxA[1],bboxA[0]+bboxA[2],bboxA[1]+bboxA[3]
-    xminB, yminB, xmaxB, ymaxB = bboxB[0],bboxB[1],bboxB[0]+bboxB[2],bboxB[1]+bboxB[3]
-
-    # Check if all corners of bboxA are within bboxB
-    return (xminA >= xminB and yminA >= yminB and
-            xmaxA <= xmaxB and ymaxA <= ymaxB)
-
 def apply_nms(predictions, iou_threshold=0.5):
-    """
-    Apply Non-Maximum Suppression (NMS) to filter out overlapping bounding boxes
-    and remove boxes that are entirely inside other boxes.
-
-    Args:
-        predictions (list): List of dictionaries where each dictionary contains:
-            - 'bbox': (xmin, ymin, xmax, ymax) for the bounding box.
-            - 'score': confidence score of the bounding box.
-        iou_threshold (float): IoU threshold for suppression.
-
-    Returns:
-        list: List of dictionaries containing the filtered bounding boxes.
-    """
-    if len(predictions) == 0:
+    """Apply Non-Maximum Suppression (NMS) to filter out overlapping bounding boxes."""
+    if not predictions:
         return []
 
-    # Convert predictions to numpy arrays for easier manipulation
     predictions = sorted(predictions, key=lambda x: x['score'], reverse=True)
 
-    # Step 1: Remove boxes that are completely inside other boxes
     filtered_predictions = []
     while predictions:
         best_pred = predictions.pop(0)
         filtered_predictions.append(best_pred)
+        predictions = [pred for pred in predictions if calculate_iou(best_pred['bbox'], pred['bbox']) < iou_threshold]
 
-        # Filter out boxes inside the best_pred
-        predictions = [pred for pred in predictions if not is_box_inside(pred['bbox'], best_pred['bbox'])]
+    return filtered_predictions
 
-    # Step 2: Apply standard IoU-based NMS on the filtered predictions
-    nms_predictions = []
-    while filtered_predictions:
-        best_pred = filtered_predictions.pop(0)
-        nms_predictions.append(best_pred)
 
-        # Compare IoU with remaining boxes
-        filtered_predictions = [pred for pred in filtered_predictions if calculate_iou(best_pred['bbox'], pred['bbox']) < iou_threshold]
 
-    return nms_predictions
+
+
+def calculate_precision_recall_ap(predictions, annotations, iou_threshold=0.5,conf_threshold=0.5):
+    tp, fp, all_scores = [], [], []
+    class_tp, class_fp, class_scores, class_gt_boxes = {}, {}, {}, {}
+
+    # Initialize dictionaries for classes
+    for gt in annotations:
+        class_id = gt['category_id']
+        if class_id not in class_gt_boxes:
+            class_gt_boxes[class_id] = 0
+        class_gt_boxes[class_id] += 1
+
+    total_gt_boxes = sum(class_gt_boxes.values())  # Total number of ground truth boxes
+
+    for image_id in set([pred['image_id'] for pred in predictions] + [gt['image_id'] for gt in annotations]):
+        preds = [pred for pred in predictions if pred['image_id'] == image_id and pred['category_id'] != 0]
+        g_truths = [gt for gt in annotations if gt['image_id'] == image_id]
+
+        if not preds and not g_truths:
+            continue  # Skip if there are no predictions and no ground truths for this image
+
+        gt_boxes, _, gt_labels = extract_coco_data(g_truths)
+        preds=apply_confidence_threshold(preds,conf_threshold)
+        preds_nms = apply_nms(preds, 0.5)
+        #preds_nms=preds
+        pred_boxes, pred_scores, pred_labels = extract_coco_data(preds_nms)
+
+        matched_gt = {cls: set() for cls in class_gt_boxes}
+
+        for pred_box, score, pred_label in zip(pred_boxes, pred_scores, pred_labels):
+            if pred_label not in class_tp:
+                class_tp[pred_label] = []
+                class_fp[pred_label] = []
+                class_scores[pred_label] = []
+
+            best_iou, best_gt_index = 0, -1
+            for i, (gt_box, gt_label) in enumerate(zip(gt_boxes, gt_labels)):
+                if gt_label != pred_label:
+                    continue
+                if i in matched_gt[pred_label]:
+                    continue
+                iou = calculate_iou(pred_box, gt_box)
+                if iou > best_iou:
+                    best_iou, best_gt_index = iou, i
+
+            if best_iou >= iou_threshold and best_gt_index != -1:
+                tp.append(1)
+                fp.append(0)
+                matched_gt[pred_label].add(best_gt_index)
+                class_tp[pred_label].append(1)
+                class_fp[pred_label].append(0)
+                #if pred_label==1:
+                  #print(preds_nms[0]['image_id'])
+            else:
+                tp.append(0)
+                fp.append(1)
+                class_tp[pred_label].append(0)
+                class_fp[pred_label].append(1)
+
+            class_scores[pred_label].append(score)  # Append score for the current class
+            all_scores.append(score)
+
+    tp, fp, all_scores = np.array(tp), np.array(fp), np.array(all_scores)
+    #print(all_scores)
+    # Sort by score (high to low)
+    indices = np.argsort(-all_scores)
+    tp, fp, all_scores = tp[indices], fp[indices], all_scores[indices]
+
+    precision, recall = np.sum(tp) / (np.sum(tp) + np.sum(fp)), np.sum(tp) / total_gt_boxes
+    tp_cumsum, fp_cumsum = np.cumsum(tp), np.cumsum(fp)
+    recalls = tp_cumsum / total_gt_boxes if total_gt_boxes > 0 else np.zeros_like(tp_cumsum)
+    precisions = tp_cumsum / (tp_cumsum + fp_cumsum)
+
+    precisions, recalls = np.insert(precisions, 0, 1), np.insert(recalls, 0, 0)
+    precisions, recalls = np.append(precisions, 0), np.append(recalls, 1)
+        # Compute the precision envelope
+    precisions = np.flip(np.maximum.accumulate(np.flip(precisions)))
+
+    x = np.linspace(0, 1, 101)  # 101-point interpolation (COCO)
+    ap = np.trapz(np.interp(x, recalls, precisions), x)  # Integrate under the curve
+
+    #ap = np.trapz(precisions, recalls)
+
+    # Compute class-wise precision and recall
+    class_precisions, class_recalls, class_aps = {}, {}, {}
+
+    for cls in class_tp:
+        tp_cls = np.array(class_tp[cls])
+        fp_cls = np.array(class_fp[cls])
+        scores_cls = np.array(class_scores.get(cls, []))  # Get scores for the current class
+
+        gt_count = class_gt_boxes.get(cls, 0)
+
+        if gt_count > 0 and len(scores_cls) > 0:
+            # Sort the indices for the current class based on scores
+            sorted_indices_cls = np.argsort(-scores_cls)
+            tp_cls = tp_cls[sorted_indices_cls]
+            fp_cls = fp_cls[sorted_indices_cls]
+
+            tp_cumsum_cls, fp_cumsum_cls = np.cumsum(tp_cls), np.cumsum(fp_cls)
+            recalls_cls = tp_cumsum_cls / gt_count
+            precisions_cls = tp_cumsum_cls / (tp_cumsum_cls + fp_cumsum_cls)
+
+            # Ensure the arrays have the correct length
+            precisions_cls1, recalls_cls1 = np.insert(precisions_cls, 0, 1), np.insert(recalls_cls, 0, 0)
+            precisions_cls1, recalls_cls1 = np.append(precisions_cls1, 0), np.append(recalls_cls1, 1)
+            precisions_cls1 = np.flip(np.maximum.accumulate(np.flip(precisions_cls1)))
+
+            ap_cls = np.trapz(np.interp(x, recalls_cls1, precisions_cls1), x)
+
+            class_precisions[cls] = precisions_cls1
+            class_recalls[cls] = recalls_cls1
+            class_aps[cls] = ap_cls
+            mean_ap =0
+            mean_ap = np.mean(list(class_aps.values())) if class_aps else 0.0
+            #print(mean_ap)
+
+    return precision, recall, mean_ap, class_precisions, class_recalls, class_aps
