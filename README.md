@@ -17,9 +17,8 @@ The dataset is split into the following sections:
 - **Validation**: 567 images (18%)
 - **Testing**: 71 images (3%)
 
-Each image is resized to 640x640 pixels for uniformity. Below are some sample images from the dataset:
-
 ![518_predictions](https://github.com/user-attachments/assets/1a0856ff-460d-4b80-b350-3441d9326f2e)
+<img src="![518_predictions](https://github.com/user-attachments/assets/1a0856ff-460d-4b80-b350-3441d9326f2e)" width="500"/>
 
 
 ## Model Performance Comparison
