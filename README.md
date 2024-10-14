@@ -17,7 +17,7 @@ The dataset is split into the following sections:
 - **Validation**: 567 images (18%)
 - **Testing**: 71 images (3%)
 
-![image](https://github.com/user-attachments/assets/3b6dc574-610b-412a-9d3e-4d4d4aaa34cc)
+![image](https://github.com/user-attachments/assets/c2a92ea8-702f-47b4-b0ee-d81c23737983)
 
 
 ## Model Performance Comparison
